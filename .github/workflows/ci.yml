@@ -70,18 +70,22 @@ jobs:
         working-directory: .
         run: python scripts/check_i18n.py
 
-      # 失败时把各步骤日志尾部写进运行摘要，便于在网页上直接看到根因
+      # 失败时把各步骤日志尾部写进运行摘要，并同时发一条注解：
+      # 日志下载接口要登录，注解是公开可读的，排查时不用再借道。
       - name: 失败摘要
         if: failure()
         shell: bash
         run: |
           for f in *.log; do
             [ -f "$f" ] || continue
-            echo "### $f"
-            echo '```'
-            tail -n 60 "$f"
-            echo '```'
-          done >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "### $f"
+              echo '```'
+              tail -n 60 "$f"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=$f::$(tail -n 20 "$f" | tr '\n' ' ' | cut -c1-2000)"
+          done
 
   e2e:
     name: 端到端（Playwright）
@@ -131,11 +135,14 @@ jobs:
         run: |
           for f in e2e.log e2e-run.log; do
             [ -f "$f" ] || continue
-            echo "### $f"
-            echo '```'
-            tail -n 60 "$f"
-            echo '```'
-          done >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "### $f"
+              echo '```'
+              tail -n 60 "$f"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=$f::$(tail -n 20 "$f" | tr '\n' ' ' | cut -c1-2000)"
+          done
 
   frontend:
     name: 前端
