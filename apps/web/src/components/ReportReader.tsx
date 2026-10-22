@@ -54,7 +54,7 @@ function collectSpeech(value: unknown, out: string[]): void {
     return
   }
   if (value && typeof value === 'object') {
-    for (const key of ['rendered_claim', 'claim', 'text', 'action', 'success_criteria']) {
+    for (const key of ['rendered_claim', 'claim', 'summary', 'text', 'action', 'success_criteria']) {
       if (key in value) collectSpeech((value as Record<string, unknown>)[key], out)
     }
   }
@@ -331,6 +331,31 @@ export function ReportReader({ onError, onNotice, readAloud = false, ageBand, ro
     history.some((row) => row[col.field] !== null && row[col.field] !== undefined),
   )
   const headline = typeof output.headline === 'string' ? output.headline.trim() : ''
+  /** 分领域 agent 的产出：每个有数据的领域一段小结，空领域只记名字不调用模型。 */
+  const domainRows = Array.isArray(output.domains)
+    ? (output.domains as Record<string, unknown>[])
+    : []
+  const skippedDomains = Array.isArray(output.no_data_domains)
+    ? (output.no_data_domains as string[])
+    : []
+  const aiUsage =
+    output.ai_usage && typeof output.ai_usage === 'object'
+      ? (output.ai_usage as {
+          calls?: number
+          prompt_tokens?: number
+          completion_tokens?: number
+          cost_est?: number | null
+          degraded_domains?: string[]
+        })
+      : null
+  const domainLabel = (domain: string) => t(`domain.${domain}`, { defaultValue: domain })
+  const costValue = aiUsage?.cost_est
+  const costText =
+    costValue === null || costValue === undefined
+      ? t('reports.ai_usage_no_cost')
+      : t('reports.ai_usage_cost', {
+          cost: new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(costValue),
+        })
 
   const renderFinding = (finding: ReportFinding) => (
     <div className="finding">
@@ -478,7 +503,17 @@ export function ReportReader({ onError, onNotice, readAloud = false, ageBand, ro
   }
 
   // 降级报告的分支单独渲染三组本地文字，正常报告里这些键不会出现。
-  const SECTION_SKIP = new Set(['headline', 'degraded', 'reason', 'metrics', 'domain_facts', 'plans'])
+  const SECTION_SKIP = new Set([
+    'headline',
+    'degraded',
+    'reason',
+    'metrics',
+    'domain_facts',
+    'plans',
+    'domains',
+    'ai_usage',
+    'no_data_domains',
+  ])
 
   /** 空章节不占版面：模型偶尔会给出空数组或空字符串。 */
   const hasContent = (value: unknown): boolean => {
@@ -521,6 +556,16 @@ export function ReportReader({ onError, onNotice, readAloud = false, ageBand, ro
             })}
           </span>
         )}
+        {aiUsage && aiUsage.calls ? (
+          <span className="tag">
+            {t('reports.ai_usage', {
+              calls: aiUsage.calls,
+              input: aiUsage.prompt_tokens ?? 0,
+              output: aiUsage.completion_tokens ?? 0,
+            })}
+            {costText}
+          </span>
+        ) : null}
       </div>
 
       {readAloud && speechText && (
@@ -559,6 +604,43 @@ export function ReportReader({ onError, onNotice, readAloud = false, ageBand, ro
           <p className="report-headline">{headline}</p>
           {!degraded && <p className="muted">{t('reports.ai_note')}</p>}
         </div>
+      )}
+
+      {/* 分领域小结：每个有记录的领域一段，空领域不出段落（第 9.2 节） */}
+      {!degraded && domainRows.length > 0 && (
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <div className="section-title">{t('report.section.domains')}</div>
+          {domainRows.map((row, index) => {
+            const domain = String(row.domain ?? '')
+            const findings = Array.isArray(row.findings)
+              ? (row.findings as ReportFinding[])
+              : []
+            return (
+              <div key={`${domain}-${index}`} style={{ marginBottom: 'var(--space-3)' }}>
+                <div className="finding-head">
+                  <span className="finding-claim">{domainLabel(domain)}</span>
+                  {row.degraded === true && (
+                    <span className="tag">{t('report.domain.local_badge')}</span>
+                  )}
+                </div>
+                {typeof row.summary === 'string' && row.summary.trim() !== '' && (
+                  <p className="detail">{row.summary}</p>
+                )}
+                {findings.map((finding, findingIndex) => (
+                  <div key={findingIndex}>{renderFinding(finding)}</div>
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {!degraded && skippedDomains.length > 0 && (
+        <p className="muted">
+          {t('reports.no_data_domains', {
+            domains: skippedDomains.map(domainLabel).join(' / '),
+          })}
+        </p>
       )}
 
       {/* 儿童版报告不出现百分数与完成率（第 9.5 节），因此不显示多月趋势表 */}

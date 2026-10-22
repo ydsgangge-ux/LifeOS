@@ -164,6 +164,35 @@ def _domain_lines(facts: dict[str, Any], locale: str) -> list[dict[str, Any]]:
     return rows
 
 
+def local_domain_summary(
+    facts: dict[str, Any], domain: str, locale: str = DEFAULT_LOCALE
+) -> str:
+    """分领域 agent 不可用时的本地下限：用已有确定性统计拼一句人话。
+
+    ``facts`` 是该领域的紧凑事实包（只含本领域指标 / 领域统计 / 计划），
+    因此这里不必再按领域筛选。没有任何可说的内容时返回空字符串。
+    """
+    lines: list[str] = []
+    block = facts.get("domain_facts")
+    if isinstance(block, dict):
+        item = block.get(domain)
+        if isinstance(item, dict):
+            line = _domain_line(domain, item, locale)
+            if line:
+                lines.append(line)
+    metrics = facts.get("metrics")
+    if isinstance(metrics, list):
+        for metric in metrics:
+            if isinstance(metric, dict) and metric.get("n"):
+                lines.append(_metric_line(metric, locale))
+    plans = facts.get("plans")
+    if isinstance(plans, list):
+        for plan in plans:
+            if isinstance(plan, dict):
+                lines.append(_plan_line(plan, locale)[1])
+    return "；".join(lines)
+
+
 def build_degraded(
     facts: dict[str, Any], *, reason: Any = None, locale: str = DEFAULT_LOCALE
 ) -> tuple[str, dict[str, Any]]:

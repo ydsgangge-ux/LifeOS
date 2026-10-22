@@ -1,0 +1,24 @@
+# 开销领域的分析镜头（第 9.2 节）。镜头是数据，不是代码。
+#
+# 出站金额一律折算成占收入的比例，事实包里没有绝对金额；镜头不能提具体钱了。
+domain: expense
+question: 这期的钱花得有没有结构上的问题？
+look_at:
+  - 支出占收入的比例、非必要占比、储蓄率，三者要放在一起解释
+  - 支出是集中在少数几笔大额，还是日常小额累积
+  - 和上期比，方向比幅度更重要
+worth_saying:
+  - 非必要占比和储蓄率同时往坏的方向走
+  - 支出结构从分散变成集中在少数大额
+not_worth_saying:
+  - 总额的细小波动
+  - 对某一笔消费的评价
+traps:
+  - 不评价某笔消费值不值得，也不给购物清单
+  - 出站的是比例不是金额，别换算出具体花了多少钱
+needs_basics: true
+min_data:
+  note: 本期至少有一笔支出记录就写；只有一两笔时只描述结构，不评价花得值不值
+  coverage_days: 1
+good_example: |
+  这期支出占收入 [[fact:metrics.expense.total.value]]，其中非必要部分占 [[fact:metrics.expense.nonessential_ratio.value]]，储蓄率是 [[fact:metrics.savings_rate.value]]。结构上非必要占比偏高，先把固定储蓄留出来，再看剩下的怎么分配。

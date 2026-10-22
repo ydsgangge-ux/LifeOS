@@ -66,8 +66,9 @@ TOPS = ("schemas", "config", "i18n")
 # 双击入口：.vbs 用 python.exe + 隐藏窗口拉起（pythonw.exe 在本机被安全软件按
 # 可执行文件粒度拦掉回环连接，会让核心永久卡在启动阶段，见 LifeOS.vbs 顶部说明）。
 ENTRY = "LifeOS.vbs"
-# .cmd 一并带上：命令行排障用（LifeOS.cmd debug）
-ENTRY_FILES = ("LifeOS.vbs", "LifeOS.cmd")
+# .cmd 一并带上：命令行排障用（LifeOS.cmd debug）；
+# LifeOS-debug.cmd 是双击可用的保底入口（前台运行、日志可见、不依赖 VBScript）。
+ENTRY_FILES = ("LifeOS.vbs", "LifeOS.cmd", "LifeOS-debug.cmd")
 
 # services/core 里绝不进包的东西
 CORE_IGNORES = (
@@ -516,7 +517,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             else:
                 _step(4, total, "按 runtime-requirements.lock.txt 安装运行期依赖")
                 _install_requirements()
-            _step(5, total, "搬入 services / apps/web/dist / schemas / config / i18n / LifeOS.vbs / LifeOS.cmd")
+            _step(5, total, "搬入 services / apps/web/dist / schemas / config / i18n / 启动入口脚本")
             copied = _copy_repo()
             _step(6, total, "自检")
             checks, warnings = _verify()

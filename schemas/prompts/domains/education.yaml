@@ -1,0 +1,22 @@
+# 学习领域的分析镜头（第 9.2 节）。镜头是数据，不是代码。
+domain: education
+question: 这段时间的学习有没有持续推进？
+look_at:
+  - 时长与活跃天数：频率比某天学多久更重要
+  - 活动分布：是一两类活动，还是铺得很散
+  - 成绩只在样本够的时候看相对变化
+worth_saying:
+  - 活跃天数明显减少，哪怕总时长没降
+  - 成绩的相对变化，且样本量足够
+not_worth_saying:
+  - 单次学习的时长
+  - 样本很少时的成绩比较
+traps:
+  - 不给「学得好不好」打分或排名
+  - 成绩样本少就直接说无法判断
+needs_basics: true
+min_data:
+  note: 本期至少一天有学习记录就写；只有一天时只看有没有做，不看强度趋势
+  coverage_days: 1
+good_example: |
+  这期学习累计 [[fact:domain_facts.education.minutes_total]]，分布在 [[fact:domain_facts.education.active_days]] 天。频率还算稳，强度偏集中；下期把时长摊到更多天，比某天多学一会儿更有用。

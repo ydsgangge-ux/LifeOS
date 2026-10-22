@@ -1,0 +1,22 @@
+# 爱好领域的分析镜头（第 9.2 节）。镜头是数据，不是代码。
+domain: hobby
+question: 这段时间有没有给自己留出玩的时间？
+look_at:
+  - 参与频率与累计时长
+  - 爱好是集中在一项，还是分散在多项
+  - 满意度只在样本够的时候提
+worth_saying:
+  - 整期完全没有参与
+  - 某一项突然挤掉其他，结构变得单一
+not_worth_saying:
+  - 单次参与的时长
+  - 满意度细分上的微小差别
+traps:
+  - 不评价爱好有没有意义，不给爱好排序
+  - 满意度样本少时就只描述参与情况
+needs_basics: true
+min_data:
+  note: 本期至少有一次爱好记录就写；只有一次时只描述这次参与，不谈频率
+  coverage_days: 1
+good_example: |
+  这期爱好投入 [[fact:domain_facts.hobby.minutes_total]]，参与 [[fact:domain_facts.hobby.active_days]] 天，涉及 [[fact:domain_facts.hobby.hobby_count]] 项。时间不多但一直在做，这块相对稳定，不用再往里加码。

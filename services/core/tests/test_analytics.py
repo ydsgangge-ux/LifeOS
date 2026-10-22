@@ -520,6 +520,8 @@ def test_facts_is_idempotent(fast_vault, tmp_path):
         "idea",
         "dream",
         "resource",
+        "income",
+        "goal",
     }
     assert len(first["metrics"]) == len(service.registry.keys())
     # 未记录领域应出现在 data_gaps

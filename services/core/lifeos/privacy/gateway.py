@@ -31,10 +31,16 @@ _FACT_BLOCKS = (
     "facts_version",
     "period",
     "profile",
+    # 用户自填的基本情况（行业、工作节奏、家庭责任等），只作为建议可行性的背景；
+    # 职位名不进白名单，字段由 record_fields.basics 收窄。
+    "basics",
     "coverage",
     "metrics",
     "domain_facts_version",
     "domain_facts",
+    # 分领域 agent 产出的小结（整段文字由该领域已放行的事实生成，不含人名与原文）；
+    # 只有整合调用会读它，字段由 record_fields.domain_summaries 收窄。
+    "domain_summaries",
     "plans",
     "insights",
     "insights_version",

@@ -253,12 +253,17 @@ def validate_output(
     min_n_by_key: dict[str, int] | None = None,
     age_band: str = "adult",
     locale: str = DEFAULT_LOCALE,
+    require_findings: bool = True,
 ) -> ValidationResult:
-    """校验整份模型输出；output 为空或没有 findings 也算失败。"""
+    """校验整份模型输出；默认没有 findings 也算失败。
+
+    分领域 agent 的产出允许只有一段小结、不列 findings，因此把「必须有 findings」
+    做成开关；其余规则（依据可解析、占位符、禁用词、因果措辞）不变。
+    """
     min_n = min_n_by_key or {}
     issues: list[Issue] = []
     findings = iter_findings(output)
-    if not findings:
+    if not findings and require_findings:
         issues.append(Issue("output", 1, t("report.invalid.no_findings")))
         return ValidationResult(issues)
     for path, finding in findings:

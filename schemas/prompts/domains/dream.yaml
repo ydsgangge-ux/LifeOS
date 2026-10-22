@@ -1,0 +1,23 @@
+# 梦境领域的分析镜头（第 9.2 节）。镜头是数据，不是代码。
+#
+# 只出次数、清晰度、重复次数、主题计数；梦境原文永不出站，所以镜头要求不解梦。
+domain: dream
+question: 这期的梦记得多少，有没有反复出现的东西？
+look_at:
+  - 记录次数与活跃天数
+  - 重复出现的次数
+  - 清晰度只在样本够的时候提
+worth_saying:
+  - 重复出现的次数明显增加
+  - 记录频率突然掉下来
+not_worth_saying:
+  - 单晚的梦
+  - 清晰度细分上的微小差别
+traps:
+  - 不解梦，不做心理象征解读，不推测情绪根源
+  - 只说记录与重复，不描述梦境内容
+min_data:
+  note: 本期至少有一次梦境记录就写；只有一次时只描述记录本身，不谈重复趋势
+  coverage_days: 1
+good_example: |
+  这期记了 [[fact:domain_facts.dream.entries]] 次梦，覆盖 [[fact:domain_facts.dream.active_days]] 天，重复出现的 [[fact:domain_facts.dream.recurring_count]] 次。记录还算连续，内容不做解读，先保持记下来。

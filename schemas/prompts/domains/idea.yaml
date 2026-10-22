@@ -1,0 +1,23 @@
+# 想法领域的分析镜头（第 9.2 节）。镜头是数据，不是代码。
+#
+# 只出状态计数与转化率，想法标题与正文永不出站；镜头不能提想法内容。
+domain: idea
+question: 这期的想法，有没有变成行动？
+look_at:
+  - 记录数，以及待处理、已转化、已完成、已放弃各有多少
+  - 转化率要和积压数量一起看
+  - 放弃数量是不是突然变多
+worth_saying:
+  - 想法在积累，但转化没跟上
+  - 放弃数量集中出现
+not_worth_saying:
+  - 想法内容好不好、可不可行
+  - 记录数量的一点点波动
+traps:
+  - 事实包里没有想法内容，别猜、别评价创意
+  - 转化率低不等于想法差，先只描述流转
+min_data:
+  note: 本期至少有一条想法记录就写；只有一条时只描述流转，不谈转化趋势
+  coverage_days: 1
+good_example: |
+  这期记下 [[fact:domain_facts.idea.entries]] 个想法，其中待处理 [[fact:domain_facts.idea.open_count]] 个、已转化 [[fact:domain_facts.idea.converted_count]] 个。想法在积累，转化没跟上，下周挑一个最小的先做出来。

@@ -13,7 +13,13 @@ from lifeos.config import AppConfig
 from lifeos.i18n import DEFAULT_LOCALE
 from lifeos.releases import load_manifest
 from lifeos.reporting import LANGUAGE_NAMES, language_name, load_prompt
-from lifeos.reporting.prompts import TEMPLATE_VARS, build_context, render_prompt
+from lifeos.reporting.prompts import (
+    TEMPLATE_VARS,
+    build_context,
+    load_domain_lens,
+    render_domain_lens,
+    render_prompt,
+)
 
 # v1 的哈希：作为常量钉住，确保「已发布版本不得原地改」
 _V1_HASHES = {
@@ -184,3 +190,90 @@ def test_v1_hashes_untouched():
     manifest = load_manifest(AppConfig().schemas_dir)
     for rel, expected in _V1_HASHES.items():
         assert manifest[rel] == expected, f"{rel} 的哈希被改动（已发布版本不得原地改）"
+
+
+# ---------------------------------------------------------------------------
+# 分领域 agent：通用壳 + 领域镜头（domain.v4）
+# ---------------------------------------------------------------------------
+def test_domain_prompt_injects_domain_lens():
+    """通用壳 + 领域镜头：每个领域只拿到自己的问题与关注点，没有镜头就只给壳。"""
+    template = load_prompt("domain", AppConfig().prompts_dir)
+    assert template.version == 4
+
+    def _system(domain: str) -> str:
+        lens = load_domain_lens(AppConfig().prompts_dir, domain)
+        context = build_context(
+            payload=_payload("zh-CN"),
+            output_schema=template.output_schema,
+            age_band="adult",
+            domain=domain,
+            domain_lens=render_domain_lens(lens),
+        )
+        system, _user = render_prompt(template, context)
+        return system
+
+    health = _system("health")
+    plan = _system("plan")
+    assert "这周的身体状态" in health
+    assert "睡眠波动" in health
+    assert "有没有朝目标推进" in plan
+    # 镜头互不串场：健康里不谈计划完成率，计划里不谈睡眠
+    assert "完成率" not in health
+    assert "睡眠" not in plan
+    # 镜头互不串场：收入里不谈睡眠，也不谈计划完成率
+    income = _system("income")
+    assert "收入记录" in income
+    assert "睡眠" not in income
+    assert "完成率" not in income
+    assert "你是个人数据报告里的" in income
+
+
+def test_only_some_domains_need_basics():
+    """基础信息只发给「建议是否做得成」依赖处境的领域，数值型领域不重复出站。"""
+    needs = {
+        domain
+        for domain in ("daily", "expense", "resource", "relation", "health",
+                       "education", "career", "hobby", "plan", "idea", "dream",
+                       "income", "goal")
+        if (lens := load_domain_lens(AppConfig().prompts_dir, domain)) and lens.needs_basics
+    }
+    assert needs == {"health", "expense", "education", "career", "hobby", "plan", "goal"}
+
+
+def test_domain_lenses_allow_single_day():
+    """门槛降为「一天有记录就写」：除计划看复盘数据外，其余都该是 1 天。"""
+    for domain in ("daily", "expense", "resource", "relation", "health",
+                   "education", "career", "hobby", "idea", "dream", "income"):
+        lens = load_domain_lens(AppConfig().prompts_dir, domain)
+        assert lens is not None and lens.min_coverage_days == 1
+    plan = load_domain_lens(AppConfig().prompts_dir, "plan")
+    assert plan is not None and plan.min_plans_with_completion == 1
+    # 目标只要「有目标」或「有检查点」就该写，不能被天数门槛挡掉
+    goal = load_domain_lens(AppConfig().prompts_dir, "goal")
+    assert goal is not None and goal.min_coverage_days == 0
+
+
+def test_domain_v3_and_lenses_registered_with_hash():
+    """通用壳与每一份领域镜头都是已发布提示词内容，必须登记 sha256（ADR-07）。"""
+    manifest = load_manifest(AppConfig().schemas_dir)
+    assert manifest["prompts/domain.v1.md"] == (
+        "7d60484b186e9ef82e48b3dd65354036c4b75463d915f7fc8edcae9c62ca594b"
+    )
+    assert manifest["prompts/domain.v2.md"] == (
+        "71593718746cd3a4133957876e9a0f52bf49ca6a0f1086ef3f7fe42327b1cfb0"
+    )
+    assert manifest["prompts/domain.v3.md"] == (
+        "41ba7243402d52d0aa85bc0dde9c4e94b28a80e6a7e7086f0fba2eda49ff2ae8"
+    )
+    assert manifest["prompts/domain.v4.md"] == (
+        "b2d595a03a128a1d61f7015cace18859b4fcaffed3b1bead0f328aee406c9ae6"
+    )
+    assert manifest["prompts/integration.v1.md"] == (
+        "8925a461e27f34363445e244c8b1309acfd383338ec11f1cb15b8944877e646b"
+    )
+    assert manifest["prompts/integration.v2.md"] == (
+        "f7908798cad415009e7a848cee646174763a85598e3b31585675316a2ba985fd"
+    )
+    for domain in ("daily", "expense", "resource", "relation", "health"):
+        assert load_domain_lens(AppConfig().prompts_dir, domain) is not None
+        assert f"prompts/domains/{domain}.yaml" in manifest

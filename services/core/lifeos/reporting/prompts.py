@@ -27,10 +27,21 @@ from jinja2 import StrictUndefined
 from jinja2.sandbox import SandboxedEnvironment
 
 from ..domain.errors import InvalidInputError, NotFoundError
-from ..i18n import DEFAULT_LOCALE
+from ..i18n import DEFAULT_LOCALE, t
 
 # 只允许注入模板的变量名；其余一律不传（第 9.4 节「变量白名单」）
-TEMPLATE_VARS = frozenset({"period", "facts_yaml", "output_schema", "age_band", "language"})
+TEMPLATE_VARS = frozenset(
+    {
+        "period",
+        "facts_yaml",
+        "output_schema",
+        "age_band",
+        "language",
+        "domain",
+        "domain_label",
+        "domain_lens",
+    }
+)
 
 # 界面 locale → 提示词里的语言名（P6 W5b.3）：交给模型的是语言名，不是 locale 码。
 # 语言名用该语言自身书写，与前端 LocalePicker 的选项名保持一致。
@@ -66,6 +77,29 @@ class PromptTemplate:
     user: str
     hash: str
     path: Path
+
+
+@dataclass(frozen=True)
+class DomainLens:
+    """某个领域的分析镜头（schemas/prompts/domains/<domain>.yaml）。
+
+    镜头同样是**数据**：它决定这个领域该问什么问题、看哪几个数、什么算噪声，
+    以及不够数据时要不要调用模型。它是提示词的一部分，随 manifest 登记指纹。
+    """
+
+    domain: str
+    question: str
+    look_at: tuple[str, ...]
+    worth_saying: tuple[str, ...]
+    not_worth_saying: tuple[str, ...]
+    traps: tuple[str, ...]
+    min_data_note: str
+    min_coverage_days: int | None
+    min_plans_with_completion: int | None
+    good_example: str
+    # 只有「建议是否做得成」依赖用户处境的领域才拿基础信息；
+    # 数值型领域（日常、开销、关系等）不需要，少发一份就少一份出站面。
+    needs_basics: bool = False
 
 
 def _split_front_matter(text: str) -> tuple[str, str]:
@@ -116,6 +150,86 @@ def load_prompt(prompt_id: str, prompts_dir: Path | str) -> PromptTemplate:
     return _parse_template(prompt_id, version, path, path.read_text(encoding="utf-8"))
 
 
+_LENS_FIELDS = (
+    ("look_at", "看哪几个数，和什么比"),
+    ("worth_saying", "什么变化值得说"),
+    ("not_worth_saying", "什么不值得说"),
+    ("traps", "常见解读陷阱"),
+)
+
+
+def _string_list(raw: Any, field: str, path: Path) -> tuple[str, ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+        raise InvalidInputError(f"领域镜头 {field} 必须是字符串数组：{path.name}")
+    return tuple(item.strip() for item in raw if item.strip())
+
+
+def _optional_int(raw: Any, field: str, path: Path) -> int | None:
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError) as exc:
+        raise InvalidInputError(f"领域镜头 {field} 必须是整数：{path.name}") from exc
+
+
+def load_domain_lens(prompts_dir: Path | str, domain: str) -> DomainLens | None:
+    """加载某个领域的分析镜头；没有镜头文件时返回 None（该领域沿用通用壳）。"""
+    path = Path(prompts_dir) / "domains" / f"{domain}.yaml"
+    if not path.exists():
+        return None
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        raise InvalidInputError(f"领域镜头格式不合法：{path.name}")
+    question = str(raw.get("question") or "").strip()
+    example = str(raw.get("good_example") or "").strip()
+    if not question or not example:
+        raise InvalidInputError(f"领域镜头缺少 question 或 good_example：{path.name}")
+    min_data = raw.get("min_data")
+    min_data = min_data if isinstance(min_data, dict) else {}
+    return DomainLens(
+        domain=str(raw.get("domain") or domain),
+        question=question,
+        look_at=_string_list(raw.get("look_at"), "look_at", path),
+        worth_saying=_string_list(raw.get("worth_saying"), "worth_saying", path),
+        not_worth_saying=_string_list(
+            raw.get("not_worth_saying"), "not_worth_saying", path
+        ),
+        traps=_string_list(raw.get("traps"), "traps", path),
+        min_data_note=str(min_data.get("note") or "").strip(),
+        min_coverage_days=_optional_int(
+            min_data.get("coverage_days"), "min_data.coverage_days", path
+        ),
+        min_plans_with_completion=_optional_int(
+            min_data.get("plans_with_completion"),
+            "min_data.plans_with_completion",
+            path,
+        ),
+        good_example=example,
+        needs_basics=bool(raw.get("needs_basics", False)),
+    )
+
+
+def render_domain_lens(lens: DomainLens | None) -> str:
+    """把镜头铺成注入模板的段落；没有镜头时返回空串，不留占位残迹。"""
+    if lens is None:
+        return ""
+    lines = [f"【这个领域在回答什么】{lens.question}"]
+    for field_name, title in _LENS_FIELDS:
+        items: tuple[str, ...] = getattr(lens, field_name)
+        if not items:
+            continue
+        lines.append(f"【{title}】")
+        lines.extend(f"- {item}" for item in items)
+    if lens.min_data_note:
+        lines.append(f"【最低数据量】{lens.min_data_note}")
+    lines.append("【一个好小结的示例】")
+    lines.append(lens.good_example)
+    return "\n".join(lines)
+
+
 def _payload_locale(payload: dict[str, Any]) -> str:
     """从事实包的 profile 区块取 locale（P6 W5b.4：locale 随载荷一路传到出站）。"""
     profile = payload.get("profile")
@@ -132,8 +246,12 @@ def build_context(
     output_schema: dict[str, Any],
     age_band: str,
     locale: str | None = None,
+    domain: str | None = None,
+    domain_lens: str = "",
 ) -> dict[str, Any]:
-    """构造模板变量。只提供白名单变量，模板拿不到别的东西。"""
+    """构造模板变量。只提供白名单变量，模板拿不到别的东西。
+    ``domain`` 决定领域名，``domain_lens`` 是该领域分析镜头的渲染结果（见 domain.v3.md）。
+    """
     period = payload.get("period")
     if not isinstance(period, dict):
         period = {}
@@ -144,12 +262,17 @@ def build_context(
         "start": period.get("start", period.get("start_week")),
         "end": period.get("end", period.get("end_week")),
     }
+    resolved_locale = locale if locale is not None else _payload_locale(payload)
     return {
         "period": normalized,
         "facts_yaml": yaml.safe_dump(payload, allow_unicode=True, sort_keys=False),
         "output_schema": json.dumps(output_schema, ensure_ascii=False, indent=2),
         "age_band": age_band,
-        "language": language_name(locale if locale is not None else _payload_locale(payload)),
+        "language": language_name(resolved_locale),
+        # 分领域 agent：给模型人类可读的领域名，代号只留在程序侧。
+        "domain": domain or "",
+        "domain_label": t(f"domain.{domain}", resolved_locale) if domain else "",
+        "domain_lens": domain_lens,
     }
 
 

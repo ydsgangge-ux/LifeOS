@@ -1,0 +1,28 @@
+# 目标领域镜头：只回答「做的事有没有靠近目标」，不评价目标本身。
+domain: goal
+question: 这段时间做的事，有没有真的朝目标靠近？
+look_at:
+  - 目标总数与状态分布：active / paused / achieved / dropped 各有多少
+  - 本期检查点条数，以及有检查点的目标数：有多少目标被真正回看过
+  - 检查点的决定分布：keep / revise / pause / drop / achieve
+  - 关联计划的完成情况：plans_linked 与 plans_done
+worth_saying:
+  - 有目标，但整期没有任何检查点：无法判断是否在靠近
+  - 检查点集中在 revise 或 pause：目标本身可能需要调整
+  - 关联计划完成了，但目标状态没有更新：推进和记录脱节
+  - 整期没有 achieved，也没有任何检查点：目标可能只是挂着
+not_worth_saying:
+  - 只看计划完成率就说目标在推进
+  - 目标数量多就说执行力强或弱
+  - 把「计划做完」等同于「目标达成」
+traps:
+  - 目标没有进度数值，不能说完成了百分之多少，也不能算距离目标还差多少
+  - 不评价目标本身值不值得、难不难
+  - 不推断为什么暂停或放弃（没有原因字段）
+  - 目标标题不在事实包里，只能用数量与状态说话
+min_data:
+  note: 只要有目标或本期有检查点就写；两者都没有才跳过
+  coverage_days: 0
+needs_basics: true
+good_example: |
+  这期有 [[fact:domain_facts.goal.goals_total]] 个目标，记了 [[fact:domain_facts.goal.checkpoints]] 次检查，覆盖 [[fact:domain_facts.goal.goals_with_checkpoint]] 个目标；关联的计划里已有 [[fact:domain_facts.goal.plans_done]] 个完成。回看的频率不高，做的事和目标之间是否在靠近，还需要更多检查点才说得清。

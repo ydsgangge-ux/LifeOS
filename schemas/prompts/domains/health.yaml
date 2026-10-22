@@ -1,0 +1,32 @@
+# 健康领域的分析镜头（第 9.2 节）。镜头是数据，不是代码。
+#
+# 只写这个领域该问的问题、看哪几个数、什么值得说、什么算噪声；
+# 通用壳（domain.v3.md）负责占位符、因果、人话这些公共约束。
+#
+# 示例里的占位符必须能在出站事实包里解析到，否则模型照抄示例会被校验打回：
+# 指标写 metrics.<指标键>.value。症状天数、入睡时点这类字段目前没有聚合，
+# 因此镜头里不谈。
+domain: health
+question: 这周的身体状态，撑得住我接下来的安排吗？
+look_at:
+  - 睡眠时长：和我自己最近几周的平均比，不和「标准八小时」比
+  - 睡眠波动：每晚差距大不大，比单日均值更能说明状态稳不稳
+  - 运动：有没有做，比做了多少更重要
+  - 饮食质量：单独看，不和睡眠拼成「健康总评」
+worth_saying:
+  - 睡眠和上一期相比变化明显，尤其是往少的方向走
+  - 运动只集中在少数几天，或者一天都没动
+  - 睡眠均值够但波动大
+not_worth_saying:
+  - 不足半小时的睡眠波动
+  - 单日异常，除非它在别的指标上也同时出现
+traps:
+  - 不推断病因，不写「因为熬夜所以免疫力下降」
+  - 不做医学结论；状态持续变差只说建议咨询专业人士
+  - 运动天数少也不打「自律」分、不排名
+needs_basics: true
+min_data:
+  note: 本期至少一天有睡眠记录就写小结；只有一两天时只描述发生了什么，不谈趋势和波动
+  coverage_days: 1
+good_example: |
+  睡眠平均 [[fact:metrics.health.sleep.mean_hours.value]]，每晚之间的波动约 [[fact:metrics.health.sleep.std.value]]；运动做了 [[fact:metrics.health.exercise.days.value]] 天，合计 [[fact:metrics.health.exercise.minutes_total.value]]。这周身体状态偏紧，先不加新任务，把睡眠稳定住再谈别的。

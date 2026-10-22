@@ -1,4 +1,4 @@
-"""领域摘要（P1）：7 个没有指标的领域只统计过程事实，不评价内容。
+"""领域摘要（P1）：9 个没有可用指标的领域只统计过程事实，不评价内容。
 
 守住三条：
 - 数字可手算（次数、天数、时长、状态分布、转化数）；
@@ -201,6 +201,66 @@ def test_degraded_report_lists_domain_summaries() -> None:
     assert "关系：2 次互动" in summary
     # 没有记录的领域不占版面
     assert "梦境：" not in summary
+
+
+def test_income_summary_never_exposes_amount(fast_vault: FastVault) -> None:
+    """收入摘要只出条数与相对变化，绝对金额永不出站（第 7.4 节）。"""
+    _entry(
+        fast_vault,
+        "income",
+        "2026-09-29",
+        {"amount": 12345, "currency": "CNY", "income_source": "salary"},
+        title="九月工资",
+    )
+    _entry(
+        fast_vault,
+        "income",
+        "2026-10-01",
+        {"amount": 20000, "currency": "CNY", "income_source": "bonus"},
+    )
+
+    block = build_domain_facts(fast_vault.conn, START, END)["income"]
+    assert block["entries"] == 2
+    assert block["active_days"] == 2
+    assert block["prev_entries"] == 0
+    assert block["change_ratio"] is None  # 上期没有记录时不算比例
+    assert set(block) == {"entries", "active_days", "prev_entries", "change_ratio"}
+
+    text = json.dumps(block, ensure_ascii=False)
+    assert "12345" not in text and "20000" not in text
+
+
+def test_goal_summary_counts_without_titles(fast_vault: FastVault) -> None:
+    """目标摘要只出状态与检查点计数，不出标题、why_note 与进展正文。"""
+    goal = fast_vault.service.longterm.create_goal(
+        {"title": "升职加薪", "why_note": "不想再加班", "horizon": "1y"}
+    )
+    _entry(
+        fast_vault,
+        "goal",
+        "2026-09-30",
+        {
+            "goal_id": goal["id"],
+            "metric_value": 3,
+            "confidence": 3,
+            "decision": "keep",
+            "progress_note": "进展还不错",
+        },
+        title="季度回看",
+    )
+
+    block = build_domain_facts(fast_vault.conn, START, END)["goal"]
+    assert block["goals_total"] == 1
+    assert block["status_counts"] == {"active": 1}
+    assert block["checkpoints"] == 1
+    assert block["goals_with_checkpoint"] == 1
+    assert block["decision_counts"] == {"keep": 1}
+    assert block["metric_value_count"] == 1
+
+    text = json.dumps(block, ensure_ascii=False)
+    assert "升职加薪" not in text
+    assert "不想再加班" not in text
+    assert "进展还不错" not in text
 
 
 def test_domain_facts_egress_filters_unlisted_fields(fast_vault: FastVault) -> None:

@@ -383,10 +383,28 @@ def _analytics(vault: FastVault, **overrides) -> AnalyticsService:
     return AnalyticsService(vault.conn, AppConfig(**values))
 
 
-MODEL_OUTPUT = {
-    "highlights": [_finding()],
-    "plan_review": [],
-    "anomaly_impact": [],
+DOMAIN_OUTPUT = {
+    "summary": "这一周的心情记录比较平稳，起伏不大，继续按现在的节奏记录就好。",
+    "findings": [
+        {
+            "claim": "心情均值是 [[fact:metrics.daily.mood.mean.value]]",
+            "figures": [{"ref": "metrics.daily.mood.mean.value", "format": "decimal1"}],
+            "evidence_refs": ["metrics.daily.mood.mean"],
+            "strength": "medium",
+            "causal_claim": False,
+            "alternatives": ["也可能只是这一周恰好比较轻松"],
+        }
+    ],
+    "gaps": [],
+}
+
+INTEGRATION_OUTPUT = {
+    "headline": (
+        "这段时间的心情均值是 [[fact:metrics.daily.mood.mean.value]]，整体比较平稳。"
+        "下面先从有记录的领域说起，其余领域可以之后再慢慢补齐。"
+        "接下来先保持记录习惯，再挑一两个小实验试试看。"
+    ),
+    "cross_domain": [],
     "experiments": [
         {"action": "固定睡前时间", "window_days": 7, "success_criteria": "入睡时间波动减小"}
     ],
@@ -395,42 +413,113 @@ MODEL_OUTPUT = {
 }
 
 
-def _transport(content: dict) -> httpx.MockTransport:
-    body = {
+def _chat_body(content: dict) -> dict:
+    return {
         "model": MODEL,
         "choices": [{"message": {"content": json.dumps(content, ensure_ascii=False)}}],
         "usage": {"prompt_tokens": 800, "completion_tokens": 400},
     }
-    return httpx.MockTransport(lambda _request: httpx.Response(200, json=body))
+
+
+def _transport(content: dict) -> httpx.MockTransport:
+    """所有请求都回同一份内容（用于「两次都不合规」这类降级用例）。"""
+    return httpx.MockTransport(lambda _request: httpx.Response(200, json=_chat_body(content)))
+
+
+def _routed_transport(
+    *, domain: dict | None = None, integration: dict | None = None
+) -> httpx.MockTransport:
+    """按提示词区分领域 agent 与整合调用，分别回各自的假输出。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raw = request.content.decode("utf-8")
+        content = domain if "【领域解读任务】" in raw else integration
+        assert content is not None, "测试未覆盖的调用类型"
+        return httpx.Response(200, json=_chat_body(content))
+
+    return httpx.MockTransport(handler)
+
+
+def _seed_daily_week(vault: FastVault) -> None:
+    """给 2026-10-12 ~ 10-18 这一周补满 daily 记录，让 daily 领域有数据可分析。"""
+    for offset in range(7):
+        day = (date(2026, 10, 12) + timedelta(days=offset)).isoformat()
+        vault.service.entries.create(
+            {
+                "domain": "daily",
+                "occurred_at": f"{day}T12:00:00+08:00",
+                "detail": {"mood": 4},
+            }
+        )
 
 
 def test_pipeline_generates_ok_report(fast_vault: FastVault, monkeypatch) -> None:
     monkeypatch.setattr(llm_gateway, "api_key", lambda _provider: "sk-test")
     write_policy(fast_vault.conn, "api_summary")
+    _seed_daily_week(fast_vault)
     analytics = _analytics(fast_vault)
 
     report = generate_report(
         analytics,
         kind="weekly",
         end="2026-10-18",
-        transport=_transport(MODEL_OUTPUT),
+        transport=_routed_transport(domain=DOMAIN_OUTPUT, integration=INTEGRATION_OUTPUT),
     )
     assert report["status"] == "ok"
     assert report["model"] == MODEL
     assert report["template_hash"] and report["snapshot_hash"]
     # 溯源：提示词版本与指标注册表版本/指纹一并落库（NFR-06）
-    assert report["template_version"] == 9  # v9 把 headline 扩成本期概览
+    assert report["template_version"] == 2  # 整合提示词 integration.v2
     assert report["metrics_version"]
     assert len(report["metrics_hash"]) == 64
-    # 每条结论都能跳回事实来源：evidence_refs 都能解析
-    finding = report["output"]["highlights"][0]
+
+    output = report["output"]
+    # 每个有数据的领域一段小结；空领域只记名字，不调用模型
+    assert [row["domain"] for row in output["domains"]] == ["daily"]
+    assert output["domains"][0]["degraded"] is False
+    assert "daily" not in output["no_data_domains"]
+    assert "dream" in output["no_data_domains"]
+    # 整合调用也拿得到紧凑指标，概览里的占位符能继续解析成程序算出的值
+    assert "[[" not in output["headline"]
+    assert "4 分" in output["headline"]
+
+    # 结论仍可追溯：evidence_refs 都能解析，占位符已换成程序算出的值
+    finding = output["domains"][0]["findings"][0]
     for ref in finding["evidence_refs"]:
         assert resolve_ref(report["facts"], ref) is not None
-    # 占位符已渲染成程序算出的值（空数据 → 占位符位置为 —）
     assert "[[fact:" not in finding["rendered_claim"]
-    # 出站记录被回填为 sent
-    row = dict(fast_vault.conn.query_one("SELECT * FROM egress_log ORDER BY ts DESC LIMIT 1"))
-    assert row["status"] == "sent"
+
+    # 成本可见：一次领域调用 + 一次整合调用，token 与费用随报告落库
+    usage = output["ai_usage"]
+    assert usage["calls"] == 2
+    assert usage["prompt_tokens"] == 1600
+    assert usage["completion_tokens"] == 800
+    assert usage["cost_est"] > 0
+    assert usage["degraded_domains"] == []
+
+    # 两次出站都回填为 sent
+    rows = [dict(row) for row in fast_vault.conn.query("SELECT * FROM egress_log")]
+    assert len(rows) == 2 and all(row["status"] == "sent" for row in rows)
+
+
+def test_domain_failure_only_degrades_that_domain(fast_vault: FastVault, monkeypatch) -> None:
+    """领域小结不合规时用本地文字兜底，整份报告仍然成立，整合照常调用。"""
+    monkeypatch.setattr(llm_gateway, "api_key", lambda _provider: "sk-test")
+    write_policy(fast_vault.conn, "api_summary")
+    _seed_daily_week(fast_vault)
+    analytics = _analytics(fast_vault)
+
+    bad_domain = {"summary": "短", "findings": [], "gaps": []}
+    report = generate_report(
+        analytics,
+        kind="weekly",
+        end="2026-10-18",
+        transport=_routed_transport(domain=bad_domain, integration=INTEGRATION_OUTPUT),
+    )
+    assert report["status"] == "ok"
+    row = report["output"]["domains"][0]
+    assert row["domain"] == "daily" and row["degraded"] is True
+    assert report["output"]["ai_usage"]["degraded_domains"] == ["daily"]
 
 
 def test_pipeline_degrades_without_egress(fast_vault: FastVault) -> None:
@@ -445,11 +534,17 @@ def test_pipeline_degrades_without_egress(fast_vault: FastVault) -> None:
 
 
 def test_pipeline_degrades_on_validation_failure(fast_vault: FastVault, monkeypatch) -> None:
-    """模型两次都给出不合规输出 → 降级，而不是写出一条错误的结论。"""
+    """整合调用两次都给出不合规输出 → 降级，而不是写出一条错误的结论。"""
     monkeypatch.setattr(llm_gateway, "api_key", lambda _provider: "sk-test")
     write_policy(fast_vault.conn, "api_summary")
     analytics = _analytics(fast_vault)
-    bad = {"highlights": [_finding(claim="本周睡了 7 小时")]}
+    bad = {
+        "headline": "本周睡了 7 小时",
+        "cross_domain": [],
+        "experiments": [],
+        "data_gaps": [],
+        "uncertainty": [],
+    }
     report = generate_report(
         analytics, kind="weekly", end="2026-10-18", transport=_transport(bad)
     )

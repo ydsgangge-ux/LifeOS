@@ -1,8 +1,9 @@
 """领域摘要（定性领域的可量化事实）。
 
-13 个领域里有 7 个没有指标：关系、学习、事业、兴趣、想法、梦境、资源。它们的
-内容质量无法用公式算出——尤其想法与梦境，给「创意分」「梦境好坏」打分既不可
-复现，也会把主观判断伪装成数据。
+13 个领域里有 9 个没有可用的指标：关系、学习、事业、兴趣、想法、梦境、资源，
+以及收入（唯一指标 income.total 永不出站）和目标（没有指标）。它们的内容质量
+无法用公式算出——尤其想法与梦境，给「创意分」「梦境好坏」打分既不可复现，
+也会把主观判断伪装成数据。
 
 这里只统计**过程事实**：记了几次、覆盖几天、花了多少分钟、状态怎么分布、
 有多少转成了计划或目标。所有字段都由 SQL 聚合与枚举值组成，不含姓名、标题、
@@ -17,6 +18,7 @@ from datetime import date
 from typing import Any
 
 from ..db.connection import VaultConnection
+from . import periods as P
 
 DOMAIN_FACTS_VERSION = 1
 
@@ -29,6 +31,8 @@ FACT_DOMAINS: tuple[str, ...] = (
     "idea",
     "dream",
     "resource",
+    "income",
+    "goal",
 )
 
 _IDEA_STATUSES = ("new", "exploring", "parked", "dropped", "done")
@@ -261,6 +265,73 @@ def _resource(conn: VaultConnection, start: date, end: date) -> dict[str, Any]:
     }
 
 
+def _income_rows(
+    conn: VaultConnection, start: date, end: date
+) -> list[dict[str, Any]]:
+    """周期内的收入条目：只取日期与金额，金额仅在本机用于算比例。"""
+    return conn.query(
+        "SELECT e.occurred_date AS d, t.amount_minor AS amount_minor"
+        " FROM txn t JOIN entry e ON e.id = t.entry_id"
+        " WHERE e.deleted_at IS NULL AND e.status = 'final'"
+        " AND t.direction = 'in'"
+        " AND e.occurred_date >= ? AND e.occurred_date <= ?",
+        (start.isoformat(), end.isoformat()),
+    )
+
+
+def _income(conn: VaultConnection, start: date, end: date) -> dict[str, Any]:
+    rows = _income_rows(conn, start, end)
+    prev_start, prev_end = P.previous_period(start, end)
+    prev_rows = _income_rows(conn, prev_start, prev_end)
+
+    def total(items: list[dict[str, Any]]) -> int | None:
+        values = [int(row["amount_minor"]) for row in items if row["amount_minor"] is not None]
+        return sum(values) if values else None
+
+    current_total = total(rows)
+    previous_total = total(prev_rows)
+    # 收入绝对金额永不出站（第 7.4 节）：这里只留条数、天数与相对变化。
+    change_ratio = None
+    if current_total is not None and previous_total:
+        change_ratio = _round((current_total - previous_total) / previous_total)
+
+    return {
+        "entries": len(rows),
+        "active_days": _active_days(rows),
+        "prev_entries": len(prev_rows),
+        "change_ratio": change_ratio,
+    }
+
+
+def _goal(conn: VaultConnection, start: date, end: date) -> dict[str, Any]:
+    goals = conn.query(
+        "SELECT status FROM goal WHERE deleted_at IS NULL ORDER BY id"
+    )
+    plans = conn.query(
+        "SELECT status FROM plan"
+        " WHERE deleted_at IS NULL AND goal_id IS NOT NULL ORDER BY id"
+    )
+    checkpoints = _rows(
+        conn, "goal_checkpoint", start, end, "goal_id, decision, metric_value"
+    )
+    # 目标标题、why_note、进展正文都不出站；只留状态分布与检查点计数。
+    return {
+        "goals_total": len(goals),
+        "status_counts": _counts(goals, "status"),
+        "checkpoints": len(checkpoints),
+        "checkpoint_active_days": _active_days(checkpoints),
+        "goals_with_checkpoint": len(
+            {row["goal_id"] for row in checkpoints if row["goal_id"]}
+        ),
+        "decision_counts": _counts(checkpoints, "decision"),
+        "metric_value_count": sum(
+            1 for row in checkpoints if row["metric_value"] is not None
+        ),
+        "plans_linked": len(plans),
+        "plans_done": sum(1 for row in plans if row["status"] == "done"),
+    }
+
+
 _BUILDERS = {
     "relation": _relation,
     "education": _education,
@@ -269,6 +340,8 @@ _BUILDERS = {
     "idea": _idea,
     "dream": _dream,
     "resource": _resource,
+    "income": _income,
+    "goal": _goal,
 }
 
 

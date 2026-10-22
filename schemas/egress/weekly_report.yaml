@@ -10,7 +10,21 @@ allow:
   # 事实包区块（顺序即出站 JSON 的键序）
   # 注：profile 区块含 age_band 与 locale。locale 本身不是敏感字段，但它决定
   # 出站提示词用哪种语言（P6 W5b.4/A6），故随 profile 区块一并放行、不单独收窄。
-  facts: [facts_version, period, profile, coverage, metrics, domain_facts_version, domain_facts, plans, insights, anomalies, data_gaps]
+  facts: [facts_version, period, profile, basics, coverage, metrics, domain_facts_version, domain_facts, domain_summaries, plans, insights, anomalies, data_gaps]
+
+  # 分领域 agent 的小结：整合调用只读「领域代号 + 一段小结」，
+  # 小结论断本身已由该领域白名单内的事实生成，不含人名与原文。
+  record_fields:
+    domain_summaries: [domain, summary]
+    # 基础信息只出结构化枚举与数量，不出职位名（接近自由文本，可能指向身份）
+    basics:
+      - industry
+      - education_level
+      - work_style
+      - risk_tolerance
+      - family_status
+      - dependents
+      - constraints
 
   # 领域摘要：7 个没有指标的定性领域只出「过程统计」。这里逐领域列字段，
   # 未登记的领域与字段一律留在本地；摘要本身不含姓名、标题、正文、条目 id 或日期。
@@ -78,6 +92,23 @@ allow:
       - unchanged_events
       - positive_accounts
       - negative_accounts
+    # 收入只出条数与相对变化，绝对金额永不出站
+    income:
+      - entries
+      - active_days
+      - prev_entries
+      - change_ratio
+    # 目标只出状态分布与检查点计数，不出标题、why_note 与进展正文
+    goal:
+      - goals_total
+      - status_counts
+      - checkpoints
+      - checkpoint_active_days
+      - goals_with_checkpoint
+      - decision_counts
+      - metric_value_count
+      - plans_linked
+      - plans_done
 
   # 指标：只放聚合与比值。income.total 不在列——它只作金额泛化的本机分母，
   # 收入绝对值本身比支出更敏感，绝不出站。

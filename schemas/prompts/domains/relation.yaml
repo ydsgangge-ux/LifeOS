@@ -1,0 +1,24 @@
+# 关系领域的分析镜头（第 9.2 节）。镜头是数据，不是代码。
+#
+# 出站只有聚合与代号：次数、活跃天数、人数、互惠均值、冲突次数。
+# 没有聊天原文，也没有亲密度，所以镜头不提「谁很久没联系」。
+domain: relation
+question: 这段时间我和别人的互动是什么样的？
+look_at:
+  - 互动次数与活跃天数，先看频率再看质量
+  - 主动发起是不是总在同一侧：这比总次数更值得说
+  - 互惠均值和冲突次数分开说，不要混成一句
+worth_saying:
+  - 主动发起长期偏向一侧
+  - 互惠程度下降，同时冲突次数上升
+not_worth_saying:
+  - 单次没回消息
+  - 样本很少时的总次数波动
+traps:
+  - 只用代号，不评价对方、不推断关系状态或对方是否真心
+  - 互动样本太少就直说无法判断，不总结
+min_data:
+  note: 本期至少一天有互动记录就写；只有一两天时不评价关系状态，只描述发生过什么
+  coverage_days: 1
+good_example: |
+  这期互动 [[fact:domain_facts.relation.entries]] 条，覆盖 [[fact:domain_facts.relation.active_days]] 天，涉及 [[fact:domain_facts.relation.person_count]] 个人，互惠程度约 [[fact:domain_facts.relation.reciprocity_mean]]。互动不算少，但主动发起主要在一侧，下期可以试试等对方先开口。
