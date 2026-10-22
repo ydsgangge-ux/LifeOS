@@ -54,7 +54,9 @@ def _lock_file(fh: IO[str]) -> None:
 
     进程崩溃时操作系统会自动释放，所以不需要额外处理「陈旧锁」。
     """
-    if os.name == "nt":
+    # 用 sys.platform 而不是 os.name：mypy 只认得前者的平台收窄，
+    # 否则在 Linux/macOS 上也会去检查 msvcrt 分支（反之亦然）并报错。
+    if sys.platform == "win32":
         import msvcrt
 
         fh.seek(0)
@@ -62,8 +64,7 @@ def _lock_file(fh: IO[str]) -> None:
     else:
         import fcntl
 
-        # 这个分支只在 POSIX 上执行；Windows 的 mypy 环境里没有 fcntl 的完整声明
-        fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)  # type: ignore[attr-defined]
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 
 class InstanceLock:

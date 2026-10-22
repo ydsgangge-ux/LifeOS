@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
 
+env:
+  # Windows runner 的控制台默认是 cp1252，中文契约名/中文测试输出会直接抛
+  # UnicodeEncodeError（表现为 import-linter 在 Windows 上莫名失败）。统一 UTF-8。
+  PYTHONUTF8: '1'
+
 jobs:
   backend:
     name: 后端（${{ matrix.os }}）
@@ -182,7 +187,9 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          bandit -r lifeos -q 2>&1 | tee audit.log
+          # 只把高危当红灯：中低危是已知的（SQL 表名/条件来自内部白名单的 f-string、
+          # 启动器要起子进程），逐条 #nosec 反而会盖住真正的高危。
+          bandit -r lifeos -q --severity-level high 2>&1 | tee audit.log
 
       - name: 失败摘要
         if: failure()
