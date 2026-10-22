@@ -17,8 +17,8 @@ from lifeos.reporting.prompts import TEMPLATE_VARS, build_context, render_prompt
 
 # v1 的哈希：作为常量钉住，确保「已发布版本不得原地改」
 _V1_HASHES = {
-    "prompts/weekly.v1.md": "f801868e9c89b5626b8e3f596070afe1dc28ef59d52803a02e07bf75aa741397",
-    "prompts/monthly.v1.md": "d5569fe5de22438cfe1f04cf8d91224305e561a5b0b5b7d8dae9651b8cff0f9a",
+    "prompts/weekly.v1.md": "a775033a16b9f3dbd04c886c75724cb1ecd6e7edd84930b25529c044e6d85e99",
+    "prompts/monthly.v1.md": "c3aed437d3934cc6d6f973072bdbfdc50a25555ae8476ac04abe5c188912a7e1",
 }
 
 
@@ -90,10 +90,10 @@ def test_v9_is_the_latest_version():
 def test_v2_prompts_registered_with_hash():
     manifest = load_manifest(AppConfig().schemas_dir)
     assert manifest["prompts/weekly.v2.md"] == (
-        "76e557ef2f7dfafd2db71015aaf2dc8e8142d43b5e040fc2dbd3250543a14dec"
+        "1bddf0069cf34d49d173ec01b9ae53a85d76d181a4b983f4a84253b1e5629e9b"
     )
     assert manifest["prompts/monthly.v2.md"] == (
-        "0a05be40395ada4b91d8f553704fbec308455bfba45761641d0546880e40a63f"
+        "6b4188b5cab8b7fabb94834de791fb5cde16c9df0246c654df7298838d5d461a"
     )
 
 
@@ -101,10 +101,10 @@ def test_v3_prompts_registered_with_hash():
     """v3 新增 domain_facts 规则，同样必须登记 sha256（ADR-07）。"""
     manifest = load_manifest(AppConfig().schemas_dir)
     assert manifest["prompts/weekly.v3.md"] == (
-        "b54945434db197f121ff96b08415b89cc72f4f746e73e7f9aa4a1c4dfb648a7d"
+        "9bacae2888d79a531ed9b4f41e18e3a37de62b7c02a42c37bc8820f0081c7da6"
     )
     assert manifest["prompts/monthly.v3.md"] == (
-        "e835834faf0e429119adee95065704c0033b9dd225b103c7cb79116a9928d474"
+        "2b063e647efbf5ddbd3698a05d78e3cfb663019869d2377c0139cbfefdbfc745"
     )
 
 
@@ -112,10 +112,10 @@ def test_v4_prompts_registered_with_hash():
     """v4 修正了实测中触发禁用词与手写数字的措辞，同样必须登记 sha256（ADR-07）。"""
     manifest = load_manifest(AppConfig().schemas_dir)
     assert manifest["prompts/weekly.v4.md"] == (
-        "85d5bf2d1c89ef7106568d07f4e6fff40c07321cab9679a8c43de74da8f0edc9"
+        "ffd7b43c280ae41ea25880a1a06ed7101db363f4910eb1395aa0f2bbb0f39f1c"
     )
     assert manifest["prompts/monthly.v4.md"] == (
-        "4305e4d83e85465222c8d1408e51b9c5ca2ff30db6b08c7ef175c634bbad5e6c"
+        "ce5fa37c9bc5c87b99ba0b982a81cf424f6cbe10e1960b2fea6ec828fb13f9b8"
     )
 
 
@@ -123,10 +123,10 @@ def test_v5_prompts_registered_with_hash():
     """v5 补全字段路径示例，同样必须登记 sha256（ADR-07）。"""
     manifest = load_manifest(AppConfig().schemas_dir)
     assert manifest["prompts/weekly.v5.md"] == (
-        "2692f4893383f43801e42a55c0b2aa197c1793f6ce9745eb767795da41d2a751"
+        "8e0a9fa7c43d7d2806ef4051645232e83948389f0310a7a98565d82b169e2a06"
     )
     assert manifest["prompts/monthly.v5.md"] == (
-        "74898385b7cf5f0341db55931f95204ce487b4579b5b1cc10696b72ea5ea38ac"
+        "b99a8988b3cb4576b76dcb5063e04079435abca6b1c4f9c9205c365bd9f54263"
     )
 
 
@@ -134,10 +134,10 @@ def test_v6_prompts_registered_with_hash():
     """v6 明确占位符自带单位，同样必须登记 sha256（ADR-07）。"""
     manifest = load_manifest(AppConfig().schemas_dir)
     assert manifest["prompts/weekly.v6.md"] == (
-        "e7c9ad6f96de09f0ec2bc3a0ed25cd25fcd520a7119ca008c0d900b27928bcb6"
+        "fb174c77c0b12dc6e4d7c2f52ecdaea4b6145e4656e32263e18da6720170aed4"
     )
     assert manifest["prompts/monthly.v6.md"] == (
-        "4761a569f054be6ebe261309021b3289fafe0598b504a28a2b9a87f99ed1f51e"
+        "a6d272cff9492e0e83f48cc79fc30914cc91e8081c2750844112ff49166f9971"
     )
 
 
@@ -145,10 +145,10 @@ def test_v7_prompts_registered_with_hash():
     """v7 把字段路径规则扩展到 claim 占位符，同样必须登记 sha256（ADR-07）。"""
     manifest = load_manifest(AppConfig().schemas_dir)
     assert manifest["prompts/weekly.v7.md"] == (
-        "097d82279dd315555e938747939a472bef0877ae7f7c5d24ecf21dd90f77c9b2"
+        "cbe97102b4df6bd1182ac1c0fa66eef7740b5edd02b23c879efde318429c4327"
     )
     assert manifest["prompts/monthly.v7.md"] == (
-        "590c7030c2211eefa3e6edb513590df19a770f8c2031d9768ec7e7810103e454"
+        "dbaf9f54e4388a8b1417946ed2e073599e4d000907adb82eac66cb7ced64f2e3"
     )
 
 
@@ -156,13 +156,13 @@ def test_v8_prompts_registered_with_hash():
     """v8 加 headline 与「说人话」规则，年报 v1 与多月 history，同样必须登记 sha256（ADR-07）。"""
     manifest = load_manifest(AppConfig().schemas_dir)
     assert manifest["prompts/weekly.v8.md"] == (
-        "3ac529f4b2177f9f3af4170dfd3c1552fc2c7504365cc13df17b952365259881"
+        "1e79898bac0c6100a120b798634fda48b3423aa1cc8d9433620dfa10be1584ae"
     )
     assert manifest["prompts/monthly.v8.md"] == (
-        "73b18398294913e4d79a6d06ce62b956847891978223733302cb2d0910fbe6ba"
+        "cac256d932f7ef7061d6516c9401df29f601659decd7716abebf32f9d04110a8"
     )
     assert manifest["prompts/yearly.v1.md"] == (
-        "a633bdbd3a9a0bd1cd10696faac1f9210ee0d77f7bde43d5b3653dc2e9e73d72"
+        "f7ebbf3ad8d0c3f32bfc31944472cbbc221afa686aff6d5a5a63cc7c339f4b06"
     )
 
 
@@ -170,13 +170,13 @@ def test_v9_prompts_registered_with_hash():
     """v9 把 headline 扩成 3~5 句的本期概览，年报同步为 v2，同样必须登记 sha256（ADR-07）。"""
     manifest = load_manifest(AppConfig().schemas_dir)
     assert manifest["prompts/weekly.v9.md"] == (
-        "443c9ffed42e32da1730fc227000b020ee27a1c95d7dacb5194b39af4896b769"
+        "a36e9d384649a9a199c9a5de5319d9b61ace6b59d29b9528aba1ff559bcad0a5"
     )
     assert manifest["prompts/monthly.v9.md"] == (
-        "03d55da1e58fc25b1e7ac5a7af90e24d1758218255cd59da63aed2472a76f831"
+        "e828461bbb40c39b7bd715d2ce7a5c940cab5060d25d55655ed894590961baf2"
     )
     assert manifest["prompts/yearly.v2.md"] == (
-        "0bb6f849668ce668a8b086ce9901215e6f7b332fe8bd019084c0cbcaf7ee6896"
+        "7e0f852bd8e72b984a5569f2e0f9c2476b199f47c919b1829c37f35f5d1d9b15"
     )
 
 

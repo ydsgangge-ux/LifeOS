@@ -18,6 +18,15 @@ import yaml
 MANIFEST_NAME = "manifest.yaml"
 
 
+def _digest(data: bytes) -> str:
+    """把 CRLF 规范成 LF 后取 sha256。
+
+    换行符是「检出产物」而不是内容改动：同一份文件在 Windows 上被 git 转成 CRLF、
+    在 Linux/macOS 上是 LF，按原始字节校验会让清单在某个平台上必然失败。
+    """
+    return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
+
+
 def load_manifest(schemas_dir: str | Path) -> dict[str, str]:
     """读已发布制品清单：相对 schemas/ 的路径 → sha256。"""
     path = Path(schemas_dir) / MANIFEST_NAME
@@ -39,7 +48,7 @@ def verify_releases(schemas_dir: str | Path) -> list[str]:
         if not target.exists():
             problems.append(f"清单登记但文件缺失：{rel}")
             continue
-        actual = hashlib.sha256(target.read_bytes()).hexdigest()
+        actual = _digest(target.read_bytes())
         if actual != expected:
             problems.append(
                 f"已发布文件被改动，应新建版本：{rel}"

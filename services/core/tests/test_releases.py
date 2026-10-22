@@ -6,6 +6,9 @@ sha256，这里断言磁盘内容与登记一致。改了已发布文件又忘�
 
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
+
 from lifeos.config import AppConfig
 from lifeos.releases import load_manifest, verify_releases
 
@@ -16,3 +19,15 @@ def test_manifest_is_not_empty() -> None:
 
 def test_released_artifacts_match_manifest() -> None:
     assert verify_releases(AppConfig().schemas_dir) == []
+
+
+def test_crlf_checkout_still_verifies(tmp_path: Path) -> None:
+    """同一份文件被 git 检出成 CRLF 时不该被当成「改过」——换行不是内容。"""
+    content = b"# prompt\nline\n"
+    digest = hashlib.sha256(content).hexdigest()
+    (tmp_path / "manifest.yaml").write_text(
+        f'released:\n  prompts/p.md: "{digest}"\n', encoding="utf-8"
+    )
+    (tmp_path / "prompts").mkdir()
+    (tmp_path / "prompts" / "p.md").write_bytes(content.replace(b"\n", b"\r\n"))
+    assert verify_releases(tmp_path) == []
