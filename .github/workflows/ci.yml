@@ -27,29 +27,56 @@ jobs:
       # 按哈希装（供应链完整性，构建文档 L1705）；再单独以 --no-deps 装上本项目本身，
       # 避免 pip 忽视锁文件去自行解析依赖。
       - name: 安装依赖（哈希锁定）
+        shell: bash
         run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.lock.txt
-          pip install -e . --no-deps
+          set -o pipefail
+          python -m pip install --upgrade pip 2>&1 | tee install.log
+          pip install --require-hashes -r requirements.lock.txt 2>&1 | tee -a install.log
+          pip install -e . --no-deps 2>&1 | tee -a install.log
 
       - name: ruff
-        run: ruff check .
+        shell: bash
+        run: |
+          set -o pipefail
+          ruff check . 2>&1 | tee ruff.log
 
       - name: mypy
-        run: mypy lifeos
+        shell: bash
+        run: |
+          set -o pipefail
+          mypy lifeos 2>&1 | tee mypy.log
 
       - name: import-linter（只有 llm 可以联网）
-        run: lint-imports
+        shell: bash
+        run: |
+          set -o pipefail
+          lint-imports 2>&1 | tee contracts.log
 
       # 迁移 checksum、加密往返、SQLCipher 三平台验证、未解锁 423，
       # 以及 W6.1 的 API 契约测（test_api_contract.py：逐路由 423 + schemathesis 模糊）都在这一条里。
       - name: pytest（含 API 契约测）
-        run: pytest -q
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest -q 2>&1 | tee pytest.log
 
       # 词表完整性（W6.6）：四语言键集合 / 占位符 / 空值必须一致
       - name: 词表完整性
         working-directory: .
         run: python scripts/check_i18n.py
+
+      # 失败时把各步骤日志尾部写进运行摘要，便于在网页上直接看到根因
+      - name: 失败摘要
+        if: failure()
+        shell: bash
+        run: |
+          for f in *.log; do
+            [ -f "$f" ] || continue
+            echo "### $f"
+            echo '```'
+            tail -n 60 "$f"
+            echo '```'
+          done >> "$GITHUB_STEP_SUMMARY"
 
   e2e:
     name: 端到端（Playwright）
@@ -67,10 +94,12 @@ jobs:
 
       - name: 装后端（e2e 要自己拉起核心）
         working-directory: services/core
+        shell: bash
         run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.lock.txt
-          pip install -e . --no-deps
+          set -o pipefail
+          python -m pip install --upgrade pip 2>&1 | tee ../e2e.log
+          pip install --require-hashes -r requirements.lock.txt 2>&1 | tee -a ../e2e.log
+          pip install -e . --no-deps 2>&1 | tee -a ../e2e.log
 
       - name: 装前端
         working-directory: apps/web
@@ -84,9 +113,24 @@ jobs:
       # 跑完关掉，不留孤儿进程。LIFEOS_PYTHON 让脚本用 runner 上的 python 而不是本机 venv 路径。
       - name: 跑 e2e
         working-directory: apps/web
+        shell: bash
         env:
           LIFEOS_PYTHON: python
-        run: npm run e2e
+        run: |
+          set -o pipefail
+          npm run e2e 2>&1 | tee ../e2e-run.log
+
+      - name: 失败摘要
+        if: failure()
+        shell: bash
+        run: |
+          for f in e2e.log e2e-run.log; do
+            [ -f "$f" ] || continue
+            echo "### $f"
+            echo '```'
+            tail -n 60 "$f"
+            echo '```'
+          done >> "$GITHUB_STEP_SUMMARY"
 
   frontend:
     name: 前端
@@ -134,4 +178,19 @@ jobs:
           python-version: '3.14'
       - run: pip install pip-audit bandit
       - run: pip-audit
-      - run: bandit -r lifeos -q
+      - name: bandit
+        shell: bash
+        run: |
+          set -o pipefail
+          bandit -r lifeos -q 2>&1 | tee audit.log
+
+      - name: 失败摘要
+        if: failure()
+        shell: bash
+        run: |
+          [ -f audit.log ] || exit 0
+          echo '### bandit'
+          echo '```'
+          tail -n 60 audit.log
+          echo '```'
+          >> "$GITHUB_STEP_SUMMARY"
