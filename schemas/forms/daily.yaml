@@ -1,0 +1,40 @@
+id: daily.mood
+domain: daily
+version: 1
+title: i18n:form.daily.title
+sections:
+  - id: state
+    fields:
+      - key: mood
+        type: scale5
+        target: daily_log.mood
+        widget:
+          child: emoji_faces
+      - key: energy
+        type: scale5
+        target: daily_log.energy
+        widget:
+          child: emoji_faces
+      - key: stress
+        type: scale5
+        target: daily_log.stress
+        ages: [teen, adult, senior]
+      - key: day_rating
+        type: scale5
+        target: daily_log.day_rating
+        widget:
+          child: emoji_faces
+      - key: one_line
+        type: longtext
+        target: daily_log.one_line
+        widget:
+          child: voice_first
+  - id: body
+    fields:
+      - key: title
+        type: text
+        target: entry.title
+      - key: note
+        type: longtext
+        target: entry.note
+anomaly: true

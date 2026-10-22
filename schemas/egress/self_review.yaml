@@ -1,0 +1,61 @@
+# 自我认知 AI 解读出站白名单（第 16 章、第 7.4 节第 2 步）。
+#
+# 只发「自我认知模块自己的结构化材料」：用户写下的自述、系统给出的可检验假设、
+# 以及各领域的过程统计。不发日记原文、不发梦境、不发人物姓名，也不发自由文本备注。
+# 自述与假设文字会过一遍标识扫描：命中手机号/证件号/邮箱/网址/人物姓名的整条字段
+# 被丢弃，不会「发现了但照发」。
+
+purpose: self_review
+
+allow:
+  facts:
+    - facts_version
+    - domain_facts_version
+    - domain_facts
+    - self_summary
+    - self_claims
+    - self_hypotheses
+
+  # 领域摘要：只给过程统计，数量与时长，不含内容
+  domain_facts:
+    career: [entries, active_days, minutes_total, minutes_mean, activity_counts, impact_mean, opportunity_count, skill_count]
+    education: [entries, active_days, minutes_total, minutes_mean, activity_counts, score_mean_ratio, score_samples, skill_count]
+    hobby: [entries, active_days, minutes_total, minutes_mean, hobby_count, satisfaction_mean, satisfaction_n]
+    idea: [entries, open_count, converted_count, done_count, dropped_count, status_counts, conversion_rate]
+
+  # 通用区块的逐字段允许清单
+  record_fields:
+    self_summary:
+      - claims_total
+      - claims_open
+      - claims_supported
+      - claims_contradicted
+      - claims_insufficient
+      - hypotheses_total
+      - hypotheses_proposed
+      - hypotheses_accepted
+      - hypotheses_rejected
+      - hypotheses_strong
+      - hypotheses_medium
+      - hypotheses_weak
+      - hypotheses_insufficient
+      - coverage_days
+    self_claims: [id, statement, kind, domain, status]
+    self_hypotheses: [id, statement, strength, status, coverage_days, items]
+
+  free_text: false
+
+transform:
+  date: none
+  money: none
+  person: code
+
+deny_always:
+  - person.display_name
+  - person.note
+  - entry.title
+  - entry.note
+  - daily_log.one_line
+  - dream_record.*
+  - attachment.*
+  - self_claim.why_note

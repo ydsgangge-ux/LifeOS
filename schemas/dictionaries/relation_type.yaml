@@ -1,0 +1,9 @@
+id: relation_type
+title: 关系类型
+options:
+  - {key: family, label: 家人, icon: family}
+  - {key: friend, label: 朋友, icon: friend}
+  - {key: colleague, label: 同事, icon: colleague}
+  - {key: mentor, label: 导师, icon: mentor}
+  - {key: classmate, label: 同学, icon: classmate}
+  - {key: other, label: 其他, icon: dots}

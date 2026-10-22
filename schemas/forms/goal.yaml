@@ -1,0 +1,37 @@
+id: goal.review
+domain: goal
+version: 1
+title: i18n:form.goal.title
+sections:
+  - id: review
+    fields:
+      - key: goal
+        type: goal
+        target: goal_checkpoint.goal_id
+      - key: metric_value
+        type: number
+        target: goal_checkpoint.metric_value
+      - key: confidence
+        type: scale5
+        target: goal_checkpoint.confidence
+      - key: decision
+        type: choice
+        options:
+          - {key: keep, label: "i18n:option.goal_decision.keep"}
+          - {key: revise, label: "i18n:option.goal_decision.revise"}
+          - {key: pause, label: "i18n:option.goal_decision.pause"}
+          - {key: drop, label: "i18n:option.goal_decision.drop"}
+          - {key: achieve, label: "i18n:option.goal_decision.achieve"}
+        target: goal_checkpoint.decision
+  - id: notes
+    fields:
+      - key: progress_note
+        type: longtext
+        target: goal_checkpoint.progress_note
+      - key: title
+        type: text
+        target: entry.title
+      - key: note
+        type: longtext
+        target: entry.note
+anomaly: false

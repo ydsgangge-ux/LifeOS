@@ -1,0 +1,5 @@
+id: yes_no
+title: 是否
+options:
+  - {key: 1, label: 是}
+  - {key: 0, label: 否}

@@ -1,0 +1,31 @@
+id: idea.capture
+domain: idea
+version: 1
+title: i18n:form.idea.title
+sections:
+  - id: idea
+    fields:
+      - key: title
+        type: text
+        target: entry.title
+      - key: note
+        type: longtext
+        target: entry.note
+      - key: state
+        type: choice
+        options:
+          - {key: new, label: "i18n:option.idea_status.new"}
+          - {key: exploring, label: "i18n:option.idea_status.exploring"}
+          - {key: parked, label: "i18n:option.idea_status.parked"}
+          - {key: dropped, label: "i18n:option.idea_status.dropped"}
+          - {key: done, label: "i18n:option.idea_status.done"}
+        target: idea_record.status
+  - id: spawn
+    fields:
+      - key: spawned_plan
+        type: plan
+        target: idea_record.spawned_plan_id
+      - key: spawned_goal
+        type: goal
+        target: idea_record.spawned_goal_id
+anomaly: false

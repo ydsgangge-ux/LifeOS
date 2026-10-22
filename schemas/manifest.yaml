@@ -1,0 +1,50 @@
+# 已发布 schema 制品的指纹（ADR-07、第 9.4 节）。
+#
+# 规矩：提示词、指标等 schema 制品「已发布版本不得原地改，改动一律新建版本」。
+# 这里登记每个已发布文件的 sha256，由 lifeos/releases.py 校验（tests/test_releases.py 守卫）。
+# 新增一个已发布版本时，把新文件连同它的 sha256 加进来；不要改动已登记条目的哈希。
+#
+# 重新计算指纹（Windows PowerShell）：
+#   Get-FileHash -Algorithm SHA256 schemas/prompts/weekly.v1.md
+# 路径相对 schemas/ 目录。
+
+released:
+  prompts/weekly.v1.md: "f801868e9c89b5626b8e3f596070afe1dc28ef59d52803a02e07bf75aa741397"
+  prompts/monthly.v1.md: "d5569fe5de22438cfe1f04cf8d91224305e561a5b0b5b7d8dae9651b8cff0f9a"
+  metrics/core.yaml: "79b1602344328bd67350832def6d4a1e16cab9f2f5baca68df31c4b3c079b2a2"
+  # v2（P6 W5b.1）：加 {{ language }} 语言占位符，让模型输出跟随所选语言（A6）。
+  # v1 保留不动（ADR-07：已发布版本不得原地改）。
+  prompts/weekly.v2.md: "76e557ef2f7dfafd2db71015aaf2dc8e8142d43b5e040fc2dbd3250543a14dec"
+  prompts/monthly.v2.md: "0a05be40395ada4b91d8f553704fbec308455bfba45761641d0546880e40a63f"
+  # v3（P1）：加入 domain_facts 规则（定性领域只读过程统计，想法/梦境不做内容打分）。
+  prompts/weekly.v3.md: "b54945434db197f121ff96b08415b89cc72f4f746e73e7f9aa4a1c4dfb648a7d"
+  prompts/monthly.v3.md: "e835834faf0e429119adee95065704c0033b9dd225b103c7cb79116a9928d474"
+  # v4（P1 实测修正）：正文去掉「诊断」措辞，数字与因果禁令覆盖所有文字字段。
+  prompts/weekly.v4.md: "85d5bf2d1c89ef7106568d07f4e6fff40c07321cab9679a8c43de74da8f0edc9"
+  prompts/monthly.v4.md: "4305e4d83e85465222c8d1408e51b9c5ca2ff30db6b08c7ef175c634bbad5e6c"
+  # v5（P1 实测修正）：把指标/计划/领域统计三类字段路径写成示例，避免模型猜错路径。
+  prompts/weekly.v5.md: "2692f4893383f43801e42a55c0b2aa197c1793f6ce9745eb767795da41d2a751"
+  prompts/monthly.v5.md: "74898385b7cf5f0341db55931f95204ce487b4579b5b1cc10696b72ea5ea38ac"
+  # v6（P1 实测修正）：占位符自带单位，禁止在其后重复写「天/分钟/小时」。
+  prompts/weekly.v6.md: "e7c9ad6f96de09f0ec2bc3a0ed25cd25fcd520a7119ca008c0d900b27928bcb6"
+  prompts/monthly.v6.md: "4761a569f054be6ebe261309021b3289fafe0598b504a28a2b9a87f99ed1f51e"
+  # v7（P1 实测修正）：路径规则同样约束 claim 里的占位符，写错即校验失败。
+  prompts/weekly.v7.md: "097d82279dd315555e938747939a472bef0877ae7f7c5d24ecf21dd90f77c9b2"
+  prompts/monthly.v7.md: "590c7030c2211eefa3e6edb513590df19a770f8c2031d9768ec7e7810103e454"
+  # 决策 AI 解读（P1）：沿用报告 finding 形状，复用校验器与占位符渲染。
+  prompts/decision.v1.md: "66dec447a940f7fdad0a110c0c5e423598dce8389e56e49b71f5dea1b5c040b8"
+  # decision v2：先用自己的档案数据与决策内容判断，外部证据只是可选补充。
+  prompts/decision.v2.md: "beca721e905230d93bddd10ceb31cb6e9b1b503781f75222bbff14d4e55dd4a3"
+  # v8（可读性）：headline 一句话总结、正文禁字段键名、先结论后依据；月报带近 6 个月 history。
+  prompts/weekly.v8.md: "3ac529f4b2177f9f3af4170dfd3c1552fc2c7504365cc13df17b952365259881"
+  prompts/monthly.v8.md: "73b18398294913e4d79a6d06ce62b956847891978223733302cb2d0910fbe6ba"
+  # 年报（v1）：整年周期 + 12 个月 history 的跨月趋势。
+  prompts/yearly.v1.md: "a633bdbd3a9a0bd1cd10696faac1f9210ee0d77f7bde43d5b3653dc2e9e73d72"
+  # v9（可读性）：headline 扩成 3~5 句、80~150 字的本期概览，其余规则同 v8。
+  prompts/weekly.v9.md: "443c9ffed42e32da1730fc227000b020ee27a1c95d7dacb5194b39af4896b769"
+  prompts/monthly.v9.md: "03d55da1e58fc25b1e7ac5a7af90e24d1758218255cd59da63aed2472a76f831"
+  # 年报 v2：与 v9 同步的全年概览。
+  prompts/yearly.v2.md: "0bb6f849668ce668a8b086ce9901215e6f7b332fe8bd019084c0cbcaf7ee6896"
+  # 页面级 AI 解读：自我认知（第 16 章）与关系（第 11.1 节），只发聚合结构。
+  prompts/self.v1.md: "41c1b46b7ed6a7ffd73f38798a31db36be3a274f9295ad20a11396f0ce1cdda3"
+  prompts/relation.v1.md: "07606da710e3125dd4559813b62442ffaa6e2a509435f26b5566ad39fa69f037"

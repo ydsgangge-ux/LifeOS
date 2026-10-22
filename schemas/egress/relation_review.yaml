@@ -1,0 +1,63 @@
+# 关系 AI 解读出站白名单（第 11.1 节「关系」页、第 7.4 节第 2 步）。
+#
+# 只发聚合后的关系结构：每个人物一个代号（人物 A/B…）、互动次数、覆盖天数、
+# 互动质量与互惠均值、冲突次数；以及关系领域的逐月汇总。
+# 不发人物姓名、备注、单条互动原文与发生日期（只发距今天数）。
+
+purpose: relation_review
+
+allow:
+  facts:
+    - facts_version
+    - domain_facts_version
+    - domain_facts
+    - relation_overview
+    - relation_people
+    - relation_months
+
+  domain_facts:
+    relation: [entries, active_days, person_count, kind_counts, initiated_counts, quality_mean, quality_n, reciprocity_mean, conflict_count]
+
+  record_fields:
+    relation_overview:
+      - person_count
+      - entry_count
+      - active_days
+      - kind_counts
+      - initiated_counts
+      - quality_mean
+      - reciprocity_mean
+      - conflict_count
+      - window_days
+    relation_people:
+      - ref
+      - relation_type
+      - entry_count
+      - active_days
+      - quality_mean
+      - reciprocity_mean
+      - conflict_count
+      - days_since_last
+    relation_months:
+      - month
+      - entries
+      - active_days
+      - quality_mean
+      - reciprocity_mean
+      - conflict_count
+
+  free_text: false
+
+transform:
+  date: none
+  money: none
+  person: code
+
+deny_always:
+  - person.display_name
+  - person.note
+  - entry.title
+  - entry.note
+  - relation_record.*
+  - dream_record.*
+  - attachment.*

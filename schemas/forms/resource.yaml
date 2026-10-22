@@ -1,0 +1,30 @@
+id: resource.check
+domain: resource
+version: 2
+title: i18n:form.resource.title
+sections:
+  - id: item
+    fields:
+      - key: resource
+        type: resource
+        target: resource_record.resource_id
+        ages: [teen, adult, senior]
+      - key: delta
+        type: number
+        target: resource_record.delta
+        ages: [teen, adult, senior]
+      - key: reason
+        type: text
+        target: resource_record.reason
+        ages: [teen, adult, senior]
+  - id: context
+    fields:
+      - key: title
+        type: text
+        target: entry.title
+        ages: [teen, adult, senior]
+      - key: note
+        type: longtext
+        target: entry.note
+        ages: [teen, adult, senior]
+anomaly: true

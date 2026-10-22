@@ -1,0 +1,157 @@
+# 周报出站白名单（第 7.4 节第 2 步）。
+#
+# 允许清单：不在 allow 里的区块与字段一律留在本地，不做「默认放行」。
+# 字段名对应事实包（第 8.7 节）的结构，逐层收窄：区块 → 记录 → 字段。
+# 新增字段要先在这里登记，否则它出不去——这是刻意设计，防止顺手加字段导致泄漏。
+
+purpose: weekly_report
+
+allow:
+  # 事实包区块（顺序即出站 JSON 的键序）
+  # 注：profile 区块含 age_band 与 locale。locale 本身不是敏感字段，但它决定
+  # 出站提示词用哪种语言（P6 W5b.4/A6），故随 profile 区块一并放行、不单独收窄。
+  facts: [facts_version, period, profile, coverage, metrics, domain_facts_version, domain_facts, plans, insights, anomalies, data_gaps]
+
+  # 领域摘要：7 个没有指标的定性领域只出「过程统计」。这里逐领域列字段，
+  # 未登记的领域与字段一律留在本地；摘要本身不含姓名、标题、正文、条目 id 或日期。
+  domain_facts:
+    relation:
+      - entries
+      - active_days
+      - person_count
+      - kind_counts
+      - initiated_counts
+      - quality_mean
+      - quality_n
+      - reciprocity_mean
+      - conflict_count
+    education:
+      - entries
+      - active_days
+      - minutes_total
+      - minutes_mean
+      - activity_counts
+      - score_mean_ratio
+      - score_samples
+      - skill_count
+    career:
+      - entries
+      - active_days
+      - minutes_total
+      - minutes_mean
+      - activity_counts
+      - impact_mean
+      - impact_n
+      - opportunity_count
+      - skill_count
+    hobby:
+      - entries
+      - active_days
+      - minutes_total
+      - minutes_mean
+      - hobby_count
+      - satisfaction_mean
+      - satisfaction_n
+    idea:
+      - entries
+      - status_counts
+      - open_count
+      - converted_count
+      - conversion_rate
+      - done_count
+      - dropped_count
+    dream:
+      - entries
+      - active_days
+      - clarity_mean
+      - clarity_n
+      - recurring_count
+      - theme_count
+      - theme_tagged_count
+    resource:
+      - entries
+      - active_days
+      - account_count
+      - kind_counts
+      - increase_events
+      - decrease_events
+      - unchanged_events
+      - positive_accounts
+      - negative_accounts
+
+  # 指标：只放聚合与比值。income.total 不在列——它只作金额泛化的本机分母，
+  # 收入绝对值本身比支出更敏感，绝不出站。
+  metrics:
+    - daily.mood.mean
+    - daily.energy.mean
+    - daily.stress.mean
+    - daily.record_completeness
+    - health.sleep.mean_hours
+    - health.sleep.std
+    - health.exercise.minutes_total
+    - health.exercise.days
+    - health.diet_quality.mean
+    - expense.total
+    - expense.nonessential_ratio
+    - savings_rate
+    - plan.completion_rate
+    - anomaly.count
+
+  # 指标记录里可以出现的字段（key/value_kind 用于本地渲染回代号与单位）
+  metric_fields:
+    - key
+    - description
+    - unit
+    - value_kind
+    - value
+    - prev_value
+    - delta
+    - n
+    - status
+    - reason
+    - excluded_anomalies
+    - value_without_exclusion
+    - lineage
+
+  plan_fields: [ref, completion_rate, anomaly_share, output_trend, diagnosis]
+  plan_diagnosis_fields: [verdict, reasons, thresholds_ref, user_rejected]
+
+  insight_fields:
+    - id
+    - pair
+    - lag_days
+    - rho
+    - n
+    - n_eff
+    - ci
+    - p_value
+    - level
+    - causal_claim
+    - missing_maybe_not_random
+    - missing_mean_diff
+    - anomaly_day_effect
+    - common_factors
+    - uncontrolled_factors
+    - verification
+    - thresholds_ref
+    - lineage
+
+  anomaly_fields: [count, impact_sum]
+
+  # 自由文本默认不出站；周报允许 api_extended 下用户逐条确认的摘要（第 7.4 节第 4 步）
+  free_text: true
+
+transform:
+  money: relative_to_monthly_income
+  date: week_index
+  person: code
+
+# 永不外发的对象（写在这里是为了让审计可读：它解释「为什么这些字段根本不进白名单」）
+deny_always:
+  - person.display_name
+  - person.note
+  - entry.title
+  - entry.note
+  - txn.amount_minor
+  - dream_record.*
+  - attachment.*

@@ -1,0 +1,180 @@
+# 核心指标注册表（第 8.2 / 8.3 节）。
+#
+# 指标一律在此声明，不在代码里硬编码。字段含义：
+#   key              指标键（全局唯一，相关性候选对与排除范围都用它）
+#   domain           所属领域（仅作分类展示，不校验是否为 entry 领域）
+#   description      面向用户的说明，写成 `i18n:<key>` 引用（NFR-08）；键在 i18n/zh-CN.yaml
+#   source           表.列（列类指标）；与 formula 二选一
+#   agg              列类指标的聚合：mean | sum | std
+#   formula          公式类指标的公式 ID（与 source 二选一）
+#   params           公式参数
+#   filter           列类指标的行过滤（列 = 值）
+#   value_kind       number（默认）| money（本位币最小单位求和后换算）| ratio
+#   grain            聚合粒度，v1 只用 day
+#   exclude_anomalies 是否按意外的观察期与指标范围排除（只影响趋势类指标）
+#   min_n            少于该样本量则报「数据不足」，不下结论
+#   unit             展示单位
+#
+# 说明（第 8.1 / 5.2 节）：计划完成率与诊断相关的指标永不排除意外，
+# 否则失败被排除后完成率会虚高。收入默认不排除（第 5.2 节表）。
+
+version: metrics_v1
+
+metrics:
+  # -- daily（第 8.3 节：mood、energy、stress 的均值；记录完整度）------------
+  - key: daily.mood.mean
+    domain: daily
+    description: i18n:metric.daily.mood.mean
+    source: daily_log.mood
+    agg: mean
+    grain: day
+    exclude_anomalies: true
+    min_n: 4
+    unit: 分
+
+  - key: daily.energy.mean
+    domain: daily
+    description: i18n:metric.daily.energy.mean
+    source: daily_log.energy
+    agg: mean
+    grain: day
+    exclude_anomalies: true
+    min_n: 4
+    unit: 分
+
+  - key: daily.stress.mean
+    domain: daily
+    description: i18n:metric.daily.stress.mean
+    source: daily_log.stress
+    agg: mean
+    grain: day
+    exclude_anomalies: true
+    min_n: 4
+    unit: 分
+
+  - key: daily.record_completeness
+    domain: daily
+    description: i18n:metric.daily.record_completeness
+    formula: completeness
+    params: {table: daily_log}
+    grain: day
+    exclude_anomalies: false
+    min_n: 4
+    unit: 天/天
+
+  # -- health（第 8.3 节）--------------------------------------------------
+  - key: health.sleep.mean_hours
+    domain: health
+    description: i18n:metric.health.sleep.mean_hours
+    source: health_log.sleep_hours
+    agg: mean
+    grain: day
+    exclude_anomalies: true
+    min_n: 4
+    unit: 小时
+
+  - key: health.sleep.std
+    domain: health
+    description: i18n:metric.health.sleep.std
+    source: health_log.sleep_hours
+    agg: std
+    grain: day
+    exclude_anomalies: true
+    min_n: 4
+    unit: 小时
+
+  - key: health.exercise.minutes_total
+    domain: health
+    description: i18n:metric.health.exercise.minutes_total
+    source: health_log.exercise_minutes
+    agg: sum
+    grain: day
+    exclude_anomalies: true
+    min_n: 4
+    unit: 分钟
+
+  - key: health.exercise.days
+    domain: health
+    description: i18n:metric.health.exercise.days
+    formula: active_days
+    params: {table: health_log, column: exercise_minutes}
+    grain: day
+    exclude_anomalies: true
+    min_n: 4
+    unit: 天
+
+  - key: health.diet_quality.mean
+    domain: health
+    description: i18n:metric.health.diet_quality.mean
+    source: health_log.diet_quality
+    agg: mean
+    grain: day
+    exclude_anomalies: true
+    min_n: 4
+    unit: 分
+
+  # -- 财务（第 8.3 / 8.9 节：只用本位币；非本位币缺汇率不进聚合）------------
+  - key: expense.total
+    domain: expense
+    description: i18n:metric.expense.total
+    source: txn.amount_minor
+    agg: sum
+    value_kind: money
+    filter: {direction: out}
+    grain: day
+    exclude_anomalies: true
+    min_n: 1
+    unit: 元
+
+  - key: income.total
+    domain: income
+    description: i18n:metric.income.total
+    source: txn.amount_minor
+    agg: sum
+    value_kind: money
+    filter: {direction: in}
+    grain: day
+    exclude_anomalies: false
+    min_n: 1
+    unit: 元
+
+  - key: expense.nonessential_ratio
+    domain: expense
+    description: i18n:metric.expense.nonessential_ratio
+    formula: nonessential_ratio
+    value_kind: ratio
+    grain: day
+    exclude_anomalies: true
+    min_n: 1
+    unit: 比例
+
+  - key: savings_rate
+    domain: expense
+    description: i18n:metric.savings_rate
+    formula: savings_rate
+    value_kind: ratio
+    grain: day
+    exclude_anomalies: true
+    min_n: 1
+    unit: 比例
+
+  # -- plan（第 8.6 节：完成率保留全部记录，永不排除）------------------------
+  - key: plan.completion_rate
+    domain: plan
+    description: i18n:metric.plan.completion_rate
+    formula: completion_rate
+    value_kind: ratio
+    grain: day
+    exclude_anomalies: false
+    min_n: 1
+    unit: 比例
+
+  # -- anomaly（每份报告都附上，第 8.3 节）----------------------------------
+  - key: anomaly.count
+    domain: anomaly
+    description: i18n:metric.anomaly.count
+    formula: anomaly_count
+    grain: day
+    exclude_anomalies: false
+    min_n: 0
+    unit: 条

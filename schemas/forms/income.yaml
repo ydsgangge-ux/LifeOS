@@ -1,0 +1,38 @@
+id: income.receive
+domain: income
+version: 1
+title: i18n:form.income.title
+sections:
+  - id: amount
+    fields:
+      - key: amount
+        type: money
+        unit: 元
+        target: txn.amount_minor
+        widget:
+          child: coin_pad
+      - key: currency
+        type: choice
+        options: [CNY, JPY, KWD]
+        target: txn.currency
+      - key: income_source
+        type: choice
+        options: dict:income_source
+        target: txn.category
+      - key: income_recurring
+        type: choice
+        options: dict:yes_no
+        target: txn.recurring
+  - id: context
+    fields:
+      - key: person
+        type: person
+        target: txn.person_id
+        ages: [teen, adult, senior]
+      - key: title
+        type: text
+        target: entry.title
+      - key: note
+        type: longtext
+        target: entry.note
+anomaly: true

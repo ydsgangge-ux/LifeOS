@@ -1,0 +1,43 @@
+id: health.daily
+domain: health
+version: 1
+title: i18n:form.health.daily.title
+sections:
+  - id: sleep
+    fields:
+      - key: sleep_hours
+        type: number
+        min: 0
+        max: 24
+        step: 0.5
+        unit: 小时
+        target: health_log.sleep_hours
+        ages: [child, teen, adult, senior]
+      - key: sleep_quality
+        type: scale5
+        target: health_log.sleep_quality
+        widget:
+          child: emoji_faces
+  - id: body
+    fields:
+      - key: exercise_minutes
+        type: duration
+        target: health_log.exercise_minutes
+      - key: exercise_type
+        type: text
+        target: health_log.exercise_type
+      - key: diet_quality
+        type: scale5
+        target: health_log.diet_quality
+      - key: symptoms
+        type: multichoice
+        options: dict:symptoms
+        target: health_log.symptoms_json
+        sensitivity_default: 2
+  - id: notes
+    fields:
+      - key: note
+        type: longtext
+        target: entry.note
+        sensitivity_default: 2
+anomaly: true

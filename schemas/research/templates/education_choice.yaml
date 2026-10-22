@@ -1,0 +1,80 @@
+# 选专业决策规则模板（第 10.3 节）。
+# 涉及升学，risk_level 至少 medium；升学类默认附官方渠道提示。
+
+decision_type: education_choice
+risk_level: medium
+authority_required: true
+authority_hint: "优先参考教育部阳光高考平台、各高校招生章程、国家统计局公开数据。"
+
+internal_facts:
+  - key: interest_records
+    description: 兴趣与爱好投入记录
+    source: hobbies
+  - key: subject_score_trend
+    description: 相关科目成绩趋势
+    source: education_records
+  - key: skill_levels
+    description: 技能水平
+    source: skill_levels
+  - key: preferred_work_style
+    description: 偏好的工作方式
+    source: self_reflection
+
+knowledge_gaps:
+  - id: employment
+    question: 该专业的就业去向与薪酬分布
+    why: 评估长期回报
+    freshness_days: 365
+    requires_authority: true
+    serves_criteria: career_outlook
+  - id: curriculum
+    question: 核心课程内容与学习难度
+    why: 匹配兴趣与能力
+    freshness_days: 365
+    requires_authority: true
+    serves_criteria: fit
+  - id: admission
+    question: 目标院校该专业的录取分数与招生计划
+    why: 评估可达性
+    freshness_days: 180
+    requires_authority: true
+    serves_criteria: reachability
+  - id: industry_cycle
+    question: 相关行业前景与周期性
+    why: 避免毕业即衰退
+    freshness_days: 365
+    requires_authority: true
+    serves_criteria: career_outlook
+  - id: transfer_policy
+    question: 转专业与深造政策
+    why: 保留调整余地
+    freshness_days: 180
+    requires_authority: true
+    serves_criteria: flexibility
+  - id: misconceptions
+    question: 该专业的常见误解
+    why: 避免信息偏差
+    freshness_days: 365
+    requires_authority: false
+    serves_criteria: fit
+
+criteria:
+  - name: 就业前景
+    key: career_outlook
+    default_weight: 0.3
+    direction: higher_is_better
+  - name: 兴趣能力匹配
+    key: fit
+    default_weight: 0.3
+    direction: higher_is_better
+  - name: 录取可达性
+    key: reachability
+    default_weight: 0.2
+    direction: higher_is_better
+  - name: 调整灵活性
+    key: flexibility
+    default_weight: 0.2
+    direction: higher_is_better
+
+warnings:
+  - 升学类信息变化快，请以当年官方招生章程为准。

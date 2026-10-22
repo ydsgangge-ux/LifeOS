@@ -1,0 +1,40 @@
+name: Release
+
+# 只手动触发：产出可分发物是重活（要下载便携 Python、按哈希装依赖、构建前端），
+# 不该每次 push 都跑。
+on:
+  workflow_dispatch:
+
+jobs:
+  package:
+    name: 组装分发包（Windows x64）
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 必须与 scripts/build_release.py 里断言的版本一致（便携 Python 与 native 扩展 ABI 绑定）
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 构建前端
+        working-directory: apps/web
+        run: npm install --no-fund --no-audit && npm run build
+
+      # 组装 release/LifeOS/：取便携 Python（带 sha256 校验）→ 按锁文件哈希装依赖 →
+      # 重写 python3xx._pth → 搬整仓。脚本自带产物自检，混进 dev 依赖或测试目录会直接失败。
+      - name: 组装分发包
+        run: python scripts/build_release.py
+
+      - name: 打包 zip
+        run: Compress-Archive -Path release\LifeOS -DestinationPath LifeOS-windows-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LifeOS-windows-x64
+          path: LifeOS-windows-x64.zip
+          if-no-files-found: error

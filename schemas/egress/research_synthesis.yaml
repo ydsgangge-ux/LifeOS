@@ -1,0 +1,68 @@
+# 联网研究合成出站白名单（第 7.4 节第 2 步、第 10 章研究回路）。
+#
+# 研究合成只关心「模式」不关心「计划」：不带 plans，不带用户文本。
+# 出站面比周报更窄——研究用途不涉及个人叙事，无需确认摘要。
+
+purpose: research_synthesis
+
+allow:
+  facts: [facts_version, period, profile, coverage, metrics, insights, anomalies, data_gaps]
+
+  metrics:
+    - daily.mood.mean
+    - daily.energy.mean
+    - daily.stress.mean
+    - health.sleep.mean_hours
+    - health.exercise.minutes_total
+    - health.diet_quality.mean
+    - expense.total
+    - expense.nonessential_ratio
+    - savings_rate
+    - anomaly.count
+
+  metric_fields:
+    - key
+    - description
+    - unit
+    - value_kind
+    - value
+    - prev_value
+    - delta
+    - n
+    - status
+    - reason
+    - lineage
+
+  insight_fields:
+    - id
+    - pair
+    - lag_days
+    - rho
+    - n
+    - n_eff
+    - ci
+    - p_value
+    - level
+    - causal_claim
+    - common_factors
+    - uncontrolled_factors
+    - verification
+    - thresholds_ref
+
+  anomaly_fields: [count, impact_sum]
+
+  free_text: false
+
+transform:
+  money: relative_to_monthly_income
+  date: week_index
+  person: code
+
+deny_always:
+  - person.display_name
+  - person.note
+  - entry.title
+  - entry.note
+  - txn.amount_minor
+  - dream_record.*
+  - attachment.*

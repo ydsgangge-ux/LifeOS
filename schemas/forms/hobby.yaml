@@ -1,0 +1,28 @@
+id: hobby.session
+domain: hobby
+version: 1
+title: i18n:form.hobby.title
+sections:
+  - id: session
+    fields:
+      - key: hobby
+        type: hobby
+        target: hobby_record.hobby_id
+      - key: minutes
+        type: duration
+        target: hobby_record.minutes
+      - key: satisfaction
+        type: scale5
+        target: hobby_record.satisfaction
+  - id: notes
+    fields:
+      - key: progress_note
+        type: longtext
+        target: hobby_record.progress_note
+      - key: title
+        type: text
+        target: entry.title
+      - key: note
+        type: longtext
+        target: entry.note
+anomaly: true

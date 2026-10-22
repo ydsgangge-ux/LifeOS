@@ -1,0 +1,66 @@
+# 换工作决策规则模板（第 10.3 节）。
+
+decision_type: career_switch
+risk_level: medium
+authority_required: false
+
+internal_facts:
+  - key: skill_list
+    description: 技能清单与水平
+    source: skill_levels
+  - key: career_output
+    description: 职业记录中的产出与影响
+    source: career_records
+  - key: runway_months
+    description: 资金缓冲
+    source: finance_buffer
+  - key: network_contacts
+    description: 关系网中相关人脉（代号与数量）
+    source: relations
+
+knowledge_gaps:
+  - id: target_role
+    question: 目标岗位的能力需求与薪酬区间
+    why: 评估匹配度与回报
+    freshness_days: 180
+    requires_authority: false
+    serves_criteria: reward
+  - id: entry_barrier
+    question: 入行门槛与必备证书
+    why: 评估准备成本
+    freshness_days: 365
+    requires_authority: false
+    serves_criteria: feasibility
+  - id: transition_path
+    question: 典型转型路径与平均耗时
+    why: 评估时间成本
+    freshness_days: 365
+    requires_authority: false
+    serves_criteria: feasibility
+  - id: industry_cycle
+    question: 目标行业的周期风险
+    why: 避免进入衰退期
+    freshness_days: 365
+    requires_authority: true
+    serves_criteria: risk
+
+criteria:
+  - name: 回报潜力
+    key: reward
+    default_weight: 0.3
+    direction: higher_is_better
+  - name: 转型可行性
+    key: feasibility
+    default_weight: 0.3
+    direction: higher_is_better
+  - name: 能力匹配
+    key: fit
+    default_weight: 0.25
+    direction: higher_is_better
+  - name: 行业风险
+    key: risk
+    default_weight: 0.15
+    direction: lower_is_better
+
+warnings:
+  - 换工作有收入断档风险，请确认资金缓冲覆盖转型期。

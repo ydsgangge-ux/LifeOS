@@ -1,0 +1,5 @@
+id: essential
+title: 是否必要
+options:
+  - {key: 1, label: 必要}
+  - {key: 0, label: 非必要}

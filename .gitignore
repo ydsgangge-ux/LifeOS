@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.import_linter_cache/
+
+# Node / 前端
+node_modules/
+dist/
+*.local
+
+# 运行时数据（绝不入库）
+.lifeos/
+.lifeos-data/
+.tmp/
+*.db
+*.db-wal
+*.db-shm
+data/
+
+# 测试工具缓存
+.hypothesis/
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 测试产物
+.coverage
+htmlcov/
+# Playwright e2e（P6 W6.3）跑完后落地的报告与失败现场
+test-results/
+playwright-report/
+
+# 分发包产物（scripts/build_release.py 产出，绝不入库）
+release/

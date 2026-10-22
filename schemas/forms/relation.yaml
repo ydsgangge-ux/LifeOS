@@ -1,0 +1,51 @@
+id: relation.interaction
+domain: relation
+version: 1
+title: i18n:form.relation.title
+sections:
+  - id: person
+    fields:
+      - key: person
+        type: person
+        target: relation_record.person_id
+      - key: kind
+        type: choice
+        options:
+          - {key: meet, label: "i18n:option.relation_kind.meet"}
+          - {key: call, label: "i18n:option.relation_kind.call"}
+          - {key: message, label: "i18n:option.relation_kind.message"}
+          - {key: help_given, label: "i18n:option.relation_kind.help_given"}
+          - {key: help_received, label: "i18n:option.relation_kind.help_received"}
+          - {key: conflict, label: "i18n:option.relation_kind.conflict"}
+          - {key: milestone, label: "i18n:option.relation_kind.milestone"}
+        target: relation_record.kind
+      - key: quality
+        type: scale5
+        target: relation_record.quality
+        widget:
+          child: emoji_faces
+      - key: reciprocity
+        type: number
+        min: -2
+        max: 2
+        step: 1
+        target: relation_record.reciprocity
+        ages: [teen, adult, senior]
+      - key: initiated_by
+        type: choice
+        options:
+          - {key: me, label: "i18n:option.initiated_by.me"}
+          - {key: them, label: "i18n:option.initiated_by.them"}
+          - {key: mutual, label: "i18n:option.initiated_by.mutual"}
+        target: relation_record.initiated_by
+        ages: [teen, adult, senior]
+  - id: notes
+    fields:
+      - key: title
+        type: text
+        target: entry.title
+      - key: note
+        type: longtext
+        target: entry.note
+        sensitivity_default: 2
+anomaly: true

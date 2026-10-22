@@ -1,0 +1,33 @@
+# LifeOS 运行时配置示例（第 13.2 节）。
+#
+# 用法：把本文件复制成数据目录里的 config.toml（默认 ~/.lifeos/config.toml），
+# 按需修改后重启服务。文件不存在时全部使用下方默认值。
+#
+# 注意（第 7.2 节第 8 条）：API 密钥不进这里，也不进 vault，
+# 而是存系统钥匙串（keyring）。本文件的 [llm] 段只放非敏感设置。
+
+[server]
+# 只绑定回环地址，不对外监听（第 7.2 节第 7 条）。
+host = '127.0.0.1'
+# 空闲多少分钟后自动锁定：丢弃 DEK、关闭数据库连接。
+idle_lock_minutes = 10
+
+[security]
+# Argon2id 参数；首次运行可按设备校准到约 500ms（见 lifeos.security.kdf.calibrate）。
+argon2_memory_kib = 65536
+argon2_iterations = 3
+argon2_parallelism = 4
+
+[llm]
+# 出站策略默认为 none（第 7.4 节）：留空即完全不联网。
+provider = ''
+model = ''
+# OpenAI 兼容的 chat completions 服务地址，例如 'https://api.openai.com/v1'。
+base_url = ''
+timeout_seconds = 60
+max_retries = 2
+
+[reports]
+# 周报：每周日 21:00；月报：当月最后一天。
+weekly_cron = '0 21 * * 0'
+monthly = 'last_day'

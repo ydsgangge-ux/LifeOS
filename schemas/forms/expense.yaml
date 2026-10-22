@@ -1,0 +1,42 @@
+id: expense.spend
+domain: expense
+version: 1
+title: i18n:form.expense.title
+sections:
+  - id: amount
+    fields:
+      - key: amount
+        type: money
+        unit: 元
+        target: txn.amount_minor
+        widget:
+          child: coin_pad
+      - key: currency
+        type: choice
+        options: [CNY, JPY, KWD]
+        target: txn.currency
+      - key: category
+        type: choice
+        options: dict:expense_category
+        target: txn.category
+      - key: essential
+        type: choice
+        options: dict:essential
+        target: txn.essential
+      - key: recurring
+        type: choice
+        options: dict:yes_no
+        target: txn.recurring
+  - id: context
+    fields:
+      - key: person
+        type: person
+        target: txn.person_id
+        ages: [teen, adult, senior]
+      - key: title
+        type: text
+        target: entry.title
+      - key: note
+        type: longtext
+        target: entry.note
+anomaly: true

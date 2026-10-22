@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    name: 后端（${{ matrix.os }}）
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        working-directory: services/core
+    steps:
+      - uses: actions/checkout@v4
+
+      # 3.14：开发哈希锁（requirements.lock.txt）是在 3.14 上生成的，随包运行时也锁 3.14。
+      # 原先是 3.12；`requires-python = ">=3.12"` 现在只由声明 + ruff 的 target-version 保证。
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      # 按哈希装（供应链完整性，构建文档 L1705）；再单独以 --no-deps 装上本项目本身，
+      # 避免 pip 忽视锁文件去自行解析依赖。
+      - name: 安装依赖（哈希锁定）
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements.lock.txt
+          pip install -e . --no-deps
+
+      - name: ruff
+        run: ruff check .
+
+      - name: mypy
+        run: mypy lifeos
+
+      - name: import-linter（只有 llm 可以联网）
+        run: lint-imports
+
+      # 迁移 checksum、加密往返、SQLCipher 三平台验证、未解锁 423，
+      # 以及 W6.1 的 API 契约测（test_api_contract.py：逐路由 423 + schemathesis 模糊）都在这一条里。
+      - name: pytest（含 API 契约测）
+        run: pytest -q
+
+      # 词表完整性（W6.6）：四语言键集合 / 占位符 / 空值必须一致
+      - name: 词表完整性
+        working-directory: .
+        run: python scripts/check_i18n.py
+
+  e2e:
+    name: 端到端（Playwright）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 装后端（e2e 要自己拉起核心）
+        working-directory: services/core
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements.lock.txt
+          pip install -e . --no-deps
+
+      - name: 装前端
+        working-directory: apps/web
+        run: npm install --no-fund --no-audit
+
+      - name: 装 Playwright 浏览器
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      # apps/web/e2e/run.mjs 自己拉起核心（LIFEOS_DATA_DIR 指向临时目录）、解析握手行拿 URL，
+      # 跑完关掉，不留孤儿进程。LIFEOS_PYTHON 让脚本用 runner 上的 python 而不是本机 venv 路径。
+      - name: 跑 e2e
+        working-directory: apps/web
+        env:
+          LIFEOS_PYTHON: python
+        run: npm run e2e
+
+  frontend:
+    name: 前端
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 安装依赖
+        run: npm install --no-fund --no-audit
+
+      - name: eslint
+        run: npm run lint
+
+      - name: tsc
+        run: npx tsc --noEmit
+
+      - name: Vitest
+        run: npm run test
+
+      - name: 构建
+        run: npm run build
+
+      - name: 产物扫描（不得出现外部 URL）
+        working-directory: .
+        run: python scripts/scan_dist.py
+
+  audit:
+    name: 依赖审计（不阻断发布）
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: services/core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: pip install pip-audit bandit
+      - run: pip-audit
+      - run: bandit -r lifeos -q

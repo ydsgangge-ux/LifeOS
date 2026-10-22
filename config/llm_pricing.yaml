@@ -1,0 +1,17 @@
+# LLM 成本估算价格表（P1「成本记录」）。
+#
+# 只用于把 token 用量折算成一个大致的金额，写进出站记录（egress_log.cost_est），
+# 方便回看「这条请求大概花了多少」；真实账单以供应商为准。
+#
+# 表的模型名必须与 [llm].model 一致（用供应商返回的实际模型名匹配）。
+# 表里没有的模型不猜价格，cost_est 直接留空。
+#
+# 下面的数值是示例，不保证与最新价目一致——请按你的供应商账单更新。
+
+models:
+  gpt-4o-mini:
+    prompt_per_1k: 0.00015
+    completion_per_1k: 0.0006
+  deepseek-chat:
+    prompt_per_1k: 0.00014
+    completion_per_1k: 0.00028

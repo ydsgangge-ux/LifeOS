@@ -1,0 +1,49 @@
+id: career.log
+domain: career
+version: 1
+title: i18n:form.career.title
+sections:
+  - id: work
+    fields:
+      - key: activity
+        type: choice
+        options:
+          - {key: work, label: "i18n:option.career_activity.work"}
+          - {key: learning, label: "i18n:option.career_activity.learning"}
+          - {key: networking, label: "i18n:option.career_activity.networking"}
+          - {key: job_change, label: "i18n:option.career_activity.job_change"}
+          - {key: review, label: "i18n:option.career_activity.review"}
+        target: career_record.activity
+        ages: [teen, adult, senior]
+      - key: minutes
+        type: duration
+        target: career_record.minutes
+        ages: [teen, adult, senior]
+      - key: impact
+        type: scale5
+        target: career_record.impact
+        ages: [teen, adult, senior]
+      - key: opportunity
+        type: choice
+        options: dict:yes_no
+        target: career_record.opportunity
+        ages: [teen, adult, senior]
+      - key: skill
+        type: skill
+        target: career_record.skill_id
+        ages: [teen, adult, senior]
+  - id: notes
+    fields:
+      - key: output_desc
+        type: longtext
+        target: career_record.output_desc
+        ages: [teen, adult, senior]
+      - key: title
+        type: text
+        target: entry.title
+        ages: [teen, adult, senior]
+      - key: note
+        type: longtext
+        target: entry.note
+        ages: [teen, adult, senior]
+anomaly: true

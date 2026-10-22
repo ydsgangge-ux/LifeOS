@@ -1,0 +1,35 @@
+id: plan.checkin
+domain: plan
+version: 1
+title: i18n:form.plan.checkin.title
+sections:
+  - id: target
+    fields:
+      - key: plan
+        type: plan
+        target: plan_record.plan_id
+      - key: planned_units
+        type: number
+        target: plan_record.planned_units
+      - key: actual_units
+        type: number
+        target: plan_record.actual_units
+      - key: unit
+        type: text
+        target: plan_record.unit
+      - key: output_value
+        type: number
+        target: plan_record.output_value
+      - key: outcome
+        type: choice
+        options: dict:plan_outcome
+        target: plan_record.outcome
+  - id: notes
+    fields:
+      - key: title
+        type: text
+        target: entry.title
+      - key: note
+        type: longtext
+        target: entry.note
+anomaly: true

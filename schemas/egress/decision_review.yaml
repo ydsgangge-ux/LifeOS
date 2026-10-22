@@ -1,0 +1,41 @@
+# 决策 AI 解读出站白名单（第 10.6 节、第 7.4 节第 2 步）。
+#
+# 只发「决策的结构化材料」：问题、评估标准、内部事实、证据元数据与证据结论。
+# 不发人物、档案、梦境原文、附件；不含自由文本确认摘要。
+# 证据结论（claim）会过一遍标识扫描：命中手机号/证件号/邮箱/网址/人物姓名的
+# 整条字段被丢弃，不会「发现了但照发」。
+
+purpose: decision_review
+
+allow:
+  facts:
+    - facts_version
+    - decision_case
+    - decision_criteria
+    - decision_internal_facts
+    - decision_evidence
+    - decision_quality
+
+  # 通用区块的逐字段允许清单
+  record_fields:
+    decision_case: [question, risk_level, status]
+    decision_criteria: [key, name, weight]
+    decision_internal_facts: [id, description, value]
+    decision_evidence: [id, source_type, user_verified, stale, weight, claim]
+    decision_quality: [total, unverified, stale]
+
+  free_text: false
+
+transform:
+  date: none
+  money: none
+  person: code
+
+deny_always:
+  - person.display_name
+  - person.note
+  - entry.title
+  - entry.note
+  - txn.amount_minor
+  - dream_record.*
+  - attachment.*

@@ -1,0 +1,42 @@
+id: education.session
+domain: education
+version: 1
+title: i18n:form.education.title
+sections:
+  - id: session
+    fields:
+      - key: subject
+        type: text
+        target: education_record.subject
+      - key: activity
+        type: choice
+        options:
+          - {key: class, label: "i18n:option.education_activity.class"}
+          - {key: self_study, label: "i18n:option.education_activity.self_study"}
+          - {key: exam, label: "i18n:option.education_activity.exam"}
+          - {key: homework, label: "i18n:option.education_activity.homework"}
+          - {key: project, label: "i18n:option.education_activity.project"}
+        target: education_record.activity
+      - key: minutes
+        type: duration
+        target: education_record.minutes
+      - key: skill
+        type: skill
+        target: education_record.skill_id
+        ages: [teen, adult, senior]
+  - id: result
+    fields:
+      - key: score
+        type: number
+        target: education_record.score
+      - key: score_max
+        type: number
+        target: education_record.score_max
+        show_if: score
+      - key: title
+        type: text
+        target: entry.title
+      - key: note
+        type: longtext
+        target: entry.note
+anomaly: true

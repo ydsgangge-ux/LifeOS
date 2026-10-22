@@ -1,0 +1,161 @@
+# 年报出站白名单（第 7.4 节第 2 步）：与月报同构，周期覆盖整年，
+# history 为 12 个月逐月聚合；同样不含自由文本与收入明细。
+
+purpose: yearly_report
+
+allow:
+  # profile 区块含 age_band 与 locale；locale 决定出站提示词语言（P6 W5b.4/A6），
+  # 随 profile 区块放行（locale 非敏感字段）。
+  facts: [facts_version, period, profile, coverage, metrics, domain_facts_version, domain_facts, plans, insights, anomalies, data_gaps, history]
+
+  # 领域摘要：与周报同构，只出过程统计；逐领域登记字段，未登记的一律留在本地。
+  domain_facts:
+    relation:
+      - entries
+      - active_days
+      - person_count
+      - kind_counts
+      - initiated_counts
+      - quality_mean
+      - quality_n
+      - reciprocity_mean
+      - conflict_count
+    education:
+      - entries
+      - active_days
+      - minutes_total
+      - minutes_mean
+      - activity_counts
+      - score_mean_ratio
+      - score_samples
+      - skill_count
+    career:
+      - entries
+      - active_days
+      - minutes_total
+      - minutes_mean
+      - activity_counts
+      - impact_mean
+      - impact_n
+      - opportunity_count
+      - skill_count
+    hobby:
+      - entries
+      - active_days
+      - minutes_total
+      - minutes_mean
+      - hobby_count
+      - satisfaction_mean
+      - satisfaction_n
+    idea:
+      - entries
+      - status_counts
+      - open_count
+      - converted_count
+      - conversion_rate
+      - done_count
+      - dropped_count
+    dream:
+      - entries
+      - active_days
+      - clarity_mean
+      - clarity_n
+      - recurring_count
+      - theme_count
+      - theme_tagged_count
+    resource:
+      - entries
+      - active_days
+      - account_count
+      - kind_counts
+      - increase_events
+      - decrease_events
+      - unchanged_events
+      - positive_accounts
+      - negative_accounts
+
+  metrics:
+    - daily.mood.mean
+    - daily.energy.mean
+    - daily.stress.mean
+    - daily.record_completeness
+    - health.sleep.mean_hours
+    - health.sleep.std
+    - health.exercise.minutes_total
+    - health.exercise.days
+    - health.diet_quality.mean
+    - expense.total
+    - expense.nonessential_ratio
+    - savings_rate
+    - plan.completion_rate
+    - anomaly.count
+
+  metric_fields:
+    - key
+    - description
+    - unit
+    - value_kind
+    - value
+    - prev_value
+    - delta
+    - n
+    - status
+    - reason
+    - excluded_anomalies
+    - value_without_exclusion
+    - lineage
+
+  plan_fields: [ref, completion_rate, anomaly_share, output_trend, diagnosis]
+  plan_diagnosis_fields: [verdict, reasons, thresholds_ref, user_rejected]
+
+  insight_fields:
+    - id
+    - pair
+    - lag_days
+    - rho
+    - n
+    - n_eff
+    - ci
+    - p_value
+    - level
+    - causal_claim
+    - missing_maybe_not_random
+    - missing_mean_diff
+    - anomaly_day_effect
+    - common_factors
+    - uncontrolled_factors
+    - verification
+    - thresholds_ref
+    - lineage
+
+  anomaly_fields: [count, impact_sum]
+
+  # 跨月对比（整年 12 个月）：只发逐月聚合数字。income 不进 history，
+  # 金额只发支出总额；未登记的字段留在本地。
+  record_fields:
+    history:
+      - month
+      - record_completeness
+      - expense_total
+      - mood_mean
+      - exercise_minutes
+      - relation_entries
+      - career_minutes_total
+      - education_minutes_total
+      - hobby_minutes_total
+
+  free_text: false
+
+transform:
+  money: relative_to_monthly_income
+  date: week_index
+  person: code
+
+deny_always:
+  - person.display_name
+  - person.note
+  - entry.title
+  - entry.note
+  - txn.amount_minor
+  - dream_record.*
+  - attachment.*

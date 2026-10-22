@@ -1,0 +1,28 @@
+id: dream.record
+domain: dream
+version: 1
+title: i18n:form.dream.title
+sections:
+  - id: dream
+    fields:
+      - key: title
+        type: text
+        target: entry.title
+      - key: note
+        type: longtext
+        target: entry.note
+        sensitivity_default: 3
+      - key: clarity
+        type: scale5
+        target: dream_record.clarity
+      - key: emotion
+        type: text
+        target: dream_record.emotion
+      - key: themes
+        type: tags
+        target: dream_record.themes_json
+      - key: dream_recurring
+        type: choice
+        options: dict:yes_no
+        target: dream_record.recurring
+anomaly: false

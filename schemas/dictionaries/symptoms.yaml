@@ -1,0 +1,10 @@
+id: symptoms
+title: 症状分类
+note: 只作记录，不做诊断（第 5.4 节）
+options:
+  - {key: headache, label: 头痛}
+  - {key: stomach, label: 胃部不适}
+  - {key: sleep_problem, label: 睡眠问题}
+  - {key: pain, label: 疼痛}
+  - {key: cold, label: 感冒症状}
+  - {key: other, label: 其他}

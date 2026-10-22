@@ -1,0 +1,13 @@
+id: expense_category
+title: 支出分类
+options:
+  - {key: food, label: 餐饮, icon: utensils}
+  - {key: housing, label: 居住, icon: home}
+  - {key: transport, label: 交通, icon: bus}
+  - {key: medical, label: 医疗, icon: cross}
+  - {key: education, label: 教育, icon: book}
+  - {key: entertainment, label: 娱乐, icon: game}
+  - {key: social, label: 人情, icon: gift}
+  - {key: subscription, label: 订阅, icon: repeat}
+  - {key: saving_invest, label: 储蓄与投资, icon: piggy}
+  - {key: other, label: 其他, icon: dots}

@@ -1,0 +1,96 @@
+# 创业决策规则模板（第 10.3 节）。
+# 评估器优先用本模板给出缺口与标准，需要时再用 LLM 补充。
+# 涉及金钱且不可逆，risk_level 默认 high。
+
+decision_type: venture
+risk_level: high
+authority_required: true
+
+# 本地已有的内部事实：键、取值区间、来源（由评估器从 vault 填值）
+internal_facts:
+  - key: runway_months
+    description: 资金缓冲（不工作可维持的月数）
+    source: finance_buffer
+  - key: relevant_skill_level
+    description: 相关技能水平区间
+    source: skill_levels
+  - key: available_hours_per_week
+    description: 可投入时间（小时/周）
+    source: time_budget
+  - key: risk_tolerance
+    description: 风险承受的历史表现
+    source: past_behavior
+  - key: family_constraints
+    description: 家庭或资金约束
+    source: dependents
+
+# 需要外部证据的知识缺口
+knowledge_gaps:
+  - id: market_size
+    question: 目标市场规模与近三年增速
+    why: 决定天花板与进入时机
+    freshness_days: 365
+    requires_authority: true
+    serves_criteria: market_attractiveness
+  - id: competition
+    question: 主要竞争对手格局与市场集中度
+    why: 评估进入难度与差异化空间
+    freshness_days: 365
+    requires_authority: false
+    serves_criteria: competition
+  - id: regulation
+    question: 所属行业的监管要求与所需牌照
+    why: 合规是硬门槛
+    freshness_days: 180
+    requires_authority: true
+    serves_criteria: risk
+  - id: cost_structure
+    question: 典型成本结构与盈亏平衡点
+    why: 评估资金需求与 runway 是否够
+    freshness_days: 365
+    requires_authority: false
+    serves_criteria: financial_feasibility
+  - id: failure_rate
+    question: 同类创业的失败率与常见失败原因
+    why: 校准预期并准备应对
+    freshness_days: 730
+    requires_authority: true
+    serves_criteria: risk
+  - id: funding
+    question: 可获得的融资或补贴渠道
+    why: 补充资金来源
+    freshness_days: 180
+    requires_authority: true
+    serves_criteria: financial_feasibility
+  - id: team_skills
+    question: 所需技能与典型团队构成
+    why: 评估能力缺口
+    freshness_days: 365
+    requires_authority: false
+    serves_criteria: capability
+
+# 决策标准：名称、默认权重、方向
+criteria:
+  - name: 市场吸引力
+    key: market_attractiveness
+    default_weight: 0.25
+    direction: higher_is_better
+  - name: 竞争格局
+    key: competition
+    default_weight: 0.15
+    direction: lower_is_better
+  - name: 财务可行性
+    key: financial_feasibility
+    default_weight: 0.25
+    direction: higher_is_better
+  - name: 能力匹配
+    key: capability
+    default_weight: 0.2
+    direction: higher_is_better
+  - name: 风险可控性
+    key: risk
+    default_weight: 0.15
+    direction: higher_is_better
+
+warnings:
+  - 涉及大额资金投入且不可逆，未充分核实前不给出结论性推荐。

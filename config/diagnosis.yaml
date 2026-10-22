@@ -1,0 +1,32 @@
+# 计划诊断器阈值（第 8.6 节、附录 B）。
+#
+# 这些是**起点**，需要用你自己的数据校准（ADR-10）。
+# 每份报告会附上本次使用的阈值快照，用户可在界面上调整。
+#
+# 规则命中顺序见第 8.6 节，先命中先返回：
+#   1 insufficient_data  2 goal_review  3 keep  4 redesign
+#   5 retire  6 catchup  7 redesign  8 watch
+
+version: diag_v1          # 阈值快照引用名，写进事实包的 thresholds_ref
+
+windows:
+  verdict_weeks: 4        # W4：判定窗口，用于规则 3、4、6、7、8
+  history_weeks: 8        # W8：历史窗口，只用于规则 5（不足 8 周则不触发）
+
+completion:
+  low: 0.7                # 完成率低于此值视为「低」；规则 3、4 要求「不低于」
+
+anomaly:
+  share_high: 0.5         # 未完成记录中被标为意外的比例达到此值 → catchup
+
+data_sufficiency:
+  min_span_weeks: 3       # 记录跨度不足 3 周 → insufficient_data
+  min_records: 6          # 计划次数少于 6 → insufficient_data
+  flat_weeks: 4           # 产出持续 4 周以上不动或下降 → redesign
+  near_zero_weeks: 8      # 产出接近 0 持续 8 周以上 → retire（按 W8 判断）
+
+opportunity:
+  minutes_per_week_high: 240   # 预计每周投入超过此分钟数 → 机会成本高（规则 5）
+
+# 仔细看：诊断器算完成率时**保留全部记录**，不因意外而排除（ADR-13）。
+# 意外只通过 anomaly.share_high 单列，否则失败被排除后完成率会虚高。

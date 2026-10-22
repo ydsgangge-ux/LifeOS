@@ -1,0 +1,10 @@
+id: income_source
+title: 收入来源
+options:
+  - {key: salary, label: 工资, icon: briefcase}
+  - {key: bonus, label: 奖金, icon: star}
+  - {key: side_business, label: 副业, icon: tools}
+  - {key: investment, label: 投资收益, icon: chart}
+  - {key: gift_money, label: 礼金, icon: gift}
+  - {key: allowance, label: 零花钱, icon: coin}
+  - {key: other, label: 其他, icon: dots}

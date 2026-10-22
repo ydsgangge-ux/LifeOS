@@ -1,0 +1,32 @@
+# 相关性提示（待验证假设）的候选指标对与门槛（第 8.5 节）。
+#
+# 定位：这里产出的是「待验证假设」，不是结论，也不是因果证明。阈值只决定
+# 要不要提示，不代表据此给出的建议一定正确。结果固定带 causal_claim: false。
+#
+# 候选指标对固定在配置里，避免到处找相关。每条 pair 指定预测指标（predictor）
+# 与结果指标（outcome），在日粒度上做 Spearman 相关，滞后取 params.lags 天。
+
+version: corr_v1          # 阈值快照引用名，写进 insight 的 thresholds_ref
+
+params:
+  lags: [0, 1, 2]         # 滞后天数：预测指标在 d，结果指标在 d+lag
+  min_coverage: 0.7       # 配对覆盖率低于此值不计算
+  n_eff_signal: 20        # n_eff ≥ 20 标 signal
+  n_eff_weak: 10          # n_eff 10–19 标 weak_signal；< 10 不输出
+  effect_size_min: 0.3    # |rho| 不低于此值才报告
+  fdr_q: 0.1              # Benjamini-Hochberg 控制的 FDR
+  block_days: 7           # 块 bootstrap 的块长度（天）
+  bootstrap_samples: 500  # 块 bootstrap 次数（固定随机种子，保证确定性）
+  seed: 20260101          # 固定随机种子：同样的数据永远得到同样的置信区间
+  missing_std_ratio: 0.5  # 缺失日与非缺失日结果均值差超过 0.5 个标准差 → 降一级
+
+pairs:
+  - predictor: health.sleep.mean_hours
+    outcome: plan.completion_rate
+    note: 睡眠时长 → 次日计划完成率
+  - predictor: health.exercise.minutes_total
+    outcome: daily.mood.mean
+    note: 运动时长 → 当天心情
+  - predictor: expense.nonessential_ratio
+    outcome: daily.stress.mean
+    note: 非必要支出占比 → 压力

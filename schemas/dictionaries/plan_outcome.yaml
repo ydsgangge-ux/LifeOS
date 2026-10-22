@@ -1,0 +1,7 @@
+id: plan_outcome
+title: 计划执行结果
+options:
+  - {key: done, label: 完成}
+  - {key: partial, label: 部分}
+  - {key: skipped, label: 跳过}
+  - {key: blocked, label: 受阻}

@@ -1,0 +1,66 @@
+# 搬迁决策规则模板（第 10.3 节）。
+
+decision_type: relocation
+risk_level: medium
+authority_required: false
+
+internal_facts:
+  - key: work_constraints
+    description: 工作约束
+    source: career_records
+  - key: family_constraints
+    description: 家庭约束
+    source: dependents
+  - key: network_distribution
+    description: 关系网分布（代号与数量）
+    source: relations
+  - key: budget
+    description: 搬迁预算
+    source: finance_buffer
+
+knowledge_gaps:
+  - id: cost_of_living
+    question: 目标城市生活成本
+    why: 评估财务影响
+    freshness_days: 365
+    requires_authority: true
+    serves_criteria: financial
+  - id: employment_education
+    question: 就业与教育资源
+    why: 匹配家庭需求
+    freshness_days: 365
+    requires_authority: true
+    serves_criteria: opportunity
+  - id: policy
+    question: 落户与购房政策
+    why: 评估长期可行性
+    freshness_days: 180
+    requires_authority: true
+    serves_criteria: feasibility
+  - id: climate_medical
+    question: 气候与医疗资源
+    why: 健康与生活质量
+    freshness_days: 365
+    requires_authority: true
+    serves_criteria: quality
+
+criteria:
+  - name: 财务影响
+    key: financial
+    default_weight: 0.3
+    direction: higher_is_better
+  - name: 发展机会
+    key: opportunity
+    default_weight: 0.3
+    direction: higher_is_better
+  - name: 可行性
+    key: feasibility
+    default_weight: 0.2
+    direction: higher_is_better
+  - name: 生活质量
+    key: quality
+    default_weight: 0.2
+    direction: higher_is_better
+
+warnings:
+  - 搬迁影响面广，请确认不可逆步骤的成本。

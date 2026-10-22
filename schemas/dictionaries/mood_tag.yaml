@@ -1,0 +1,11 @@
+id: mood_tag
+title: 情绪标签
+options:
+  - {key: happy, label: 开心}
+  - {key: calm, label: 平静}
+  - {key: anxious, label: 焦虑}
+  - {key: irritated, label: 烦躁}
+  - {key: low, label: 低落}
+  - {key: excited, label: 兴奋}
+  - {key: tired, label: 疲惫}
+  - {key: other, label: 其他}
