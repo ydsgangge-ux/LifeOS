@@ -65,6 +65,7 @@ def restore_backup_endpoint(
     if body.confirm_alias.strip() != alias:
         raise ApiError(400, CODE_INVALID_INPUT, t("backup.confirm_mismatch"))
 
+    state.stop_lan()  # 恢复会锁定会话，手机访问也一并收回
     state.lock()  # 覆盖档案目录前先断开当前连接
     result = restore_backup(
         state.profiles,

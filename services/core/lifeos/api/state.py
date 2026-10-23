@@ -24,11 +24,10 @@ from ..forms.loader import FormRegistry
 from ..security.session import SessionManager, UnlockedVault
 from ..selfcheck.service import SelfCheckService
 from .errors import CODE_RATE_LIMITED, ApiError
+from .lan import LanAccess
+from .middleware import LOOPBACK_HOSTS
 
 TOKEN_BYTES = 32
-
-# 只接受本机回环地址（第 7.3 节，防 DNS rebinding）
-LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
 
 def _policy_from_meta(meta: dict[str, Any]) -> dict[str, Any] | None:
@@ -94,7 +93,10 @@ class AppState:
         self.sessions = SessionManager(config.idle_lock_minutes)
         self.forms = FormRegistry(config.forms_dir)
         self.limiter = UnlockLimiter()
-        self.allowed_hosts = LOOPBACK_HOSTS
+        # 手机访问开启时临时放行的局域网地址；关闭即收回，默认是空集。
+        self._lan_hosts: frozenset[str] = frozenset()
+        # 由 create_app 注入：按需监听 0.0.0.0 的第二个实例（手机扫码进网页）。
+        self.lan: LanAccess | None = None
         # 由 main() 注入：界面内「退出 LifeOS」经 POST /system/shutdown 触发（P6 W3.1）。
         # 为 None 表示当前运行方式不支持从界面退出（如 ASGI 进程内嵌、单测）。
         self.shutdown_hook: Callable[[], None] | None = None
@@ -103,6 +105,20 @@ class AppState:
         self._service: DomainService | None = None
         self._analytics: AnalyticsService | None = None
         self._selfcheck: SelfCheckService | None = None
+
+    # -- 网络放行 ---------------------------------------------------------
+    @property
+    def allowed_hosts(self) -> frozenset[str]:
+        """当前允许的 Host：回环地址，加上手机访问期间的本机局域网地址。"""
+        return LOOPBACK_HOSTS | self._lan_hosts
+
+    def set_lan_host(self, host: str | None) -> None:
+        self._lan_hosts = frozenset({host}) if host else frozenset()
+
+    def stop_lan(self) -> None:
+        """锁定或退出时收回手机访问端口。"""
+        if self.lan is not None:
+            self.lan.stop()
 
     # -- 会话 -------------------------------------------------------------
     def unlock(self, profile: UnlockedProfile) -> None:
@@ -155,6 +171,8 @@ class AppState:
         if self.sessions.is_locked():
             if self._service is not None:
                 self.lock()
+            # 空闲超时后手机访问也一并收回，不留下一个还能打开解锁页的端口。
+            self.stop_lan()
             return None
         self.sessions.touch()
         return self._service
@@ -176,6 +194,7 @@ class AppState:
         return self.sessions.current()
 
     def close(self) -> None:
+        self.stop_lan()
         self.lock()
         self.profiles.registry.close()
 

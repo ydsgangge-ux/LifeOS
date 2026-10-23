@@ -186,6 +186,8 @@ def put_guardian_policy(
 @router.post("/profiles/{profile_id}/lock")
 def lock_profile(profile_id: str, state: AppState = Depends(get_state)) -> dict:
     require_profile(state, profile_id)
+    # 手动锁定后手机访问也没有意义了：端口一并收回，别留着一个能开的门。
+    state.stop_lan()
     state.lock()
     return {"locked": True}
 
@@ -229,6 +231,7 @@ def destroy_profile(
     profile_id: str, body: DestroyRequest, state: AppState = Depends(get_state)
 ) -> dict:
     require_profile(state, profile_id)
+    state.stop_lan()  # 档案都要销毁了，手机访问的端口不应该还开着
     state.lock()  # crypto-shred 前先关掉连接，避免文件被占用
     state.profiles.destroy(profile_id, body.confirm_alias)
     return {"destroyed": True}

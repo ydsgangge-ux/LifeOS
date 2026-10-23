@@ -17,6 +17,7 @@ import { ExitButton } from './components/ExitButton'
 import { FormRenderer } from './components/FormRenderer'
 import { GoalsPlans } from './components/GoalsPlans'
 import { JudgmentReview } from './components/JudgmentReview'
+import { LanAccess } from './components/LanAccess'
 import { LlmSettings } from './components/LlmSettings'
 import { LocalePicker } from './components/LocalePicker'
 import { PeopleNetwork } from './components/PeopleNetwork'
@@ -282,6 +283,7 @@ export default function App() {
         <span className="brand">{t('app.brand')}</span>
         <span className="pill">{active.alias}</span>
         <span className="spacer" />
+        <LanAccess onNotice={(kind, text) => setMessage({ kind, text })} />
         <LocalePicker
           profileId={active.profile_id}
           onNotice={(kind, text) => setMessage({ kind, text })}

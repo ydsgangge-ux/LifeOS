@@ -130,6 +130,11 @@ npm run build
 cd ../..
 ```
 
+> Not into typing? Double-click **`LifeOS-setup.cmd`** in the repo root: it checks your Python / Node
+> versions, creates the venv, installs dependencies and builds the frontend, and tells you in plain
+> language what is missing. Then double-click `LifeOS.vbs`. Add `dev` as an argument to also install
+> the test and lint tooling.
+
 Generate some fake data to see what it looks like (**never mix real data in**):
 
 ```powershell

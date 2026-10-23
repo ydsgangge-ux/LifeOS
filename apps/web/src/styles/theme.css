@@ -1198,3 +1198,114 @@ details summary {
   padding-left: var(--space-4);
 }
 
+/* ---- 手机访问（局域网，P6）----------------------------------------------- */
+/* 顶栏按钮 + 就地展开的面板：开启后里面是二维码与带令牌的地址。 */
+.lan {
+  position: relative;
+}
+
+.lan-panel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  width: min(340px, calc(100vw - var(--space-5) * 2));
+  z-index: 20;
+  box-shadow: var(--shadow-2);
+  text-align: left;
+}
+
+.lan-panel h2 {
+  font-size: var(--font-size-md);
+}
+
+.lan-qr {
+  display: flex;
+  justify-content: center;
+  /* 二维码必须白底黑码，暗色主题下也要保证可扫 */
+  background: #ffffff;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.lan-panel .recovery-key {
+  font-size: var(--font-size-xs);
+}
+
+/* ---- 窄屏与手机（P6 W8：同一套 SPA 的响应式）---------------------------- */
+@media (max-width: 900px) {
+  .network-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .topbar .brand {
+    font-size: var(--font-size-md);
+  }
+
+  /* 小屏放不下这条常驻说明，收掉免得把按钮挤成两行 */
+  .topbar > .muted {
+    display: none;
+  }
+
+  .tabs {
+    position: static;
+    overflow-x: auto;
+    padding: 0 var(--space-3);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tabs .tab {
+    white-space: nowrap;
+    padding: var(--space-3) var(--space-3) var(--space-2);
+  }
+
+  .content {
+    padding: var(--space-3);
+  }
+
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: var(--space-3);
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  /* iOS 对小于 16px 的输入框会在聚焦时自动放大整个页面 */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* 宽表在手机上横向滚动，而不是把列挤成一条线 */
+  .history-table,
+  .data-table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  /* 手机上改成底部抽屉，避免面板超出屏幕 */
+  .lan-panel {
+    position: fixed;
+    top: auto;
+    left: var(--space-3);
+    right: var(--space-3);
+    bottom: var(--space-3);
+    width: auto;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+}
+

@@ -38,6 +38,15 @@ export interface HealthInfo {
   idle_lock_minutes: number
 }
 
+/** 手机访问：关闭时只有 active=false；开启后带可扫码的地址与剩余秒数。 */
+export interface LanStatus {
+  active: boolean
+  host?: string
+  port?: number
+  url?: string
+  expires_in_seconds?: number
+}
+
 export interface ProfileSummary {
   id: string
   alias: string

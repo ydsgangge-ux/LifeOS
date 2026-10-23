@@ -31,6 +31,7 @@ import {
   type Hypothesis,
   type HypothesisGeneration,
   type JudgmentReview,
+  type LanStatus,
   type MetricList,
   type Plan,
   type PlanDiagnosis,
@@ -179,6 +180,11 @@ export const api = {
 
   /** 界面内的「退出 LifeOS」（P6 W3.1）：核心进程收到后优雅停服。 */
   shutdown: () => request<{ shutting_down: boolean }>('/system/shutdown', { method: 'POST' }),
+
+  /** 手机访问：临时开一个局域网端口，返回带令牌的可扫码地址。 */
+  getLan: () => request<LanStatus>('/system/lan'),
+  startLan: () => request<LanStatus>('/system/lan', { method: 'POST' }),
+  stopLan: () => request<LanStatus>('/system/lan', { method: 'DELETE' }),
 
   /** 个人基础信息（决策评估与自我认知的前提条件）。 */
   getBasics: () => request<{ item: ProfileBasics; options: BasicsOptions }>('/profile/basics'),

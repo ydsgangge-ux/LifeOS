@@ -34,6 +34,7 @@ from lifeos.api import (
     egress,
     entries,
     forms,
+    lan_access,
     links,
     longterm,
     profiles,
@@ -55,6 +56,7 @@ ROUTERS: tuple[Any, ...] = (
     profiles.router,
     forms.router,
     entries.router,
+    lan_access.router,
     links.router,
     longterm.router,
     attachments.router,
@@ -70,6 +72,9 @@ ROUTERS: tuple[Any, ...] = (
 UNLOCK_GUARDS = frozenset({require_service, require_analytics, require_selfcheck})
 _PATH_PARAM = re.compile(r"\{[^}]+\}")
 DUMMY_ID = "01J0CONTRACT0000000000000000"
+# 开启手机访问会真的 bind 一个监听端口，不适合放进进程内契约测试；
+# 它的失败路径与状态机由 test_lan_access.py 覆盖。
+_SKIP = {("/system/lan", "POST")}
 
 
 def _requires_unlock(dependant: Any) -> bool:
@@ -102,6 +107,8 @@ def test_locked_app_never_500_and_guarded_routes_are_423(data_dir):
             assert methods, f"路由 {route.path} 没有可用方法"
             guarded = _requires_unlock(route.dependant)
             for method in methods:
+                if (route.path, method) in _SKIP:
+                    continue
                 response = client.request(method, path, headers=AUTH, json={})
                 where = f"{method} {path} -> {response.status_code}"
                 assert response.status_code < 500, f"{where}：未解锁不该吐 5xx"

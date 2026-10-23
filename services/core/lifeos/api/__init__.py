@@ -27,6 +27,7 @@ from . import decisions as decisions_api
 from . import egress as egress_api
 from . import entries as entries_api
 from . import forms as forms_api
+from . import lan_access as lan_api
 from . import links as links_api
 from . import llm as llm_api
 from . import longterm as longterm_api
@@ -36,6 +37,7 @@ from . import selfcheck as selfcheck_api
 from . import system as system_api
 from . import themes as themes_api
 from .errors import install_error_handlers
+from .lan import LanAccess
 from .middleware import LocalOnlyMiddleware
 from .state import AppState, default_web_dist
 
@@ -75,8 +77,10 @@ def create_app(
         lifespan=_lifespan,
     )
     app.state.lifeos = state
+    # 手机访问：按需起第二个实例，开启/关闭时同步 Host 白名单。
+    state.lan = LanAccess(app, token=state.token, on_change=state.set_lan_host)
 
-    app.add_middleware(LocalOnlyMiddleware, allowed_hosts=state.allowed_hosts)
+    app.add_middleware(LocalOnlyMiddleware, allowed_hosts=lambda: state.allowed_hosts)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(DEV_ORIGINS),
@@ -96,6 +100,7 @@ def create_app(
         attachments_api.router,
         analytics_api.router,
         llm_api.router,
+        lan_api.router,
         egress_api.router,
         reports_api.router,
         backup_api.router,
