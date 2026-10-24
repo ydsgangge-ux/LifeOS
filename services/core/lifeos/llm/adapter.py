@@ -26,6 +26,13 @@ from .pricing import Pricing, estimate_cost
 _BACKOFF_BASE = 1.0  # 第 n 次重试前等 _BACKOFF_BASE * 2**(n-1) 秒
 _RETRYABLE_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
 _CHAT_PATH = "/chat/completions"
+# 输出长度的唯一约束：报告不再按句数/字数限制，而是给一次调用 token 预算，
+# 让总结、分析、建议三块都写得透。config.toml 的 llm.max_tokens 可覆盖。
+#
+# 注意：这个预算是「本次请求的总输出」，推理型模型（deepseek-flash 等）把内部
+# 思考也记在 completion_tokens 里。实测 8000 的预算里七千多被思考吃掉，正文
+# 只剩几百 token，JSON 直接被截断；所以默认值留出一万六，让正文拿到约八千。
+DEFAULT_MAX_TOKENS = 16000
 
 
 @dataclass(frozen=True)
@@ -46,14 +53,18 @@ class Completion:
     cost_est: float | None
     attempts: int
     latency_ms: int
+    # OpenAI 兼容协议的结束原因；"length" 表示预算用完、内容被截断
+    finish_reason: str = ""
 
 
-def _payload(model: str, messages: Sequence[ChatMessage]) -> dict[str, Any]:
-    # 第 9.2 节第 4 步「要求输出 JSON」：用协议层的强制格式，而不是只靠提示词
+def _payload(model: str, messages: Sequence[ChatMessage], max_tokens: int) -> dict[str, Any]:
+    # 第 9.2 节第 4 步「要求输出 JSON」：用协议层的强制格式，而不是只靠提示词。
+    # max_tokens 是唯一的篇幅约束：提示词不再限制句数/字数，只给 token 预算。
     return {
         "model": model,
         "messages": [{"role": m.role, "content": m.content} for m in messages],
         "response_format": {"type": "json_object"},
+        "max_tokens": max_tokens,
     }
 
 
@@ -68,7 +79,8 @@ def _parse(
 ) -> Completion:
     try:
         data = response.json()
-        text = data["choices"][0]["message"]["content"]
+        choice = data["choices"][0]
+        text = choice["message"]["content"]
     except (ValueError, KeyError, IndexError, TypeError) as exc:
         raise LlmResponseError("响应不是预期的 chat completions 结构") from exc
     usage = data.get("usage")
@@ -95,6 +107,7 @@ def _parse(
         cost_est=cost,
         attempts=attempts,
         latency_ms=latency_ms,
+        finish_reason=str(choice.get("finish_reason") or ""),
     )
 
 
@@ -107,6 +120,7 @@ def complete(
     api_key: str,
     timeout_seconds: int,
     max_retries: int,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
     pricing: Pricing | None = None,
     transport: httpx.BaseTransport | None = None,
     sleep: Callable[[float], None] = time.sleep,
@@ -123,7 +137,9 @@ def complete(
         for attempt in range(max_retries + 1):
             attempts = attempt + 1
             try:
-                response = client.post(url, json=_payload(model, messages), headers=headers)
+                response = client.post(
+                    url, json=_payload(model, messages, max_tokens), headers=headers
+                )
             except httpx.TimeoutException:
                 pass  # 超时算瞬时故障
             except httpx.TransportError:

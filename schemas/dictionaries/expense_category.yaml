@@ -2,6 +2,7 @@ id: expense_category
 title: 支出分类
 options:
   - {key: food, label: 餐饮, icon: utensils}
+  - {key: shopping, label: 购物, icon: bag}
   - {key: housing, label: 居住, icon: home}
   - {key: transport, label: 交通, icon: bus}
   - {key: medical, label: 医疗, icon: cross}

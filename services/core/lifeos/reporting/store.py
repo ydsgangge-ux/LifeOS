@@ -112,6 +112,28 @@ def list_reports(
     return [dict(row) for row in conn.query(sql, params)]
 
 
+def reports_in_period(
+    conn: VaultConnection, *, kind: str, start: str, end: str
+) -> list[dict[str, Any]]:
+    """取某个周期内已成功生成的下层报告（月报读周报、年报读月报）。
+
+    同一个周期可能被重跑过（比如校验失败后手动再来一份），这里只保留最新的一份，
+    避免同一周/同一月的内容在整合输入里出现两次。降级报告不作为材料。
+    """
+    rows = conn.query(
+        "SELECT id, period_start, period_end, output_json, created_at FROM report"
+        " WHERE kind = ? AND status = 'ok' AND period_start >= ? AND period_end <= ?"
+        " ORDER BY period_start, created_at",
+        (kind, str(start)[:10], str(end)[:10]),
+    )
+    latest: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        item = dict(row)
+        item["output"] = _decode(item.pop("output_json", None))
+        latest[str(item.get("period_start") or "")] = item
+    return list(latest.values())
+
+
 def report_exists(conn: VaultConnection, kind: str, period_end: str) -> bool:
     """该周期是否已生成过报告——补跑用，保证同一个周期只生成一次。"""
     row = conn.query_one(

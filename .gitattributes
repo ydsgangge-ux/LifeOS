@@ -1,0 +1,13 @@
+# Windows launchers must be CRLF and pure ASCII.
+#
+# Why: cmd.exe parses batch files byte by byte. LF-only line endings plus
+# non-ASCII text makes it misparse lines (half a line runs as a command,
+# "pause" gets split), so the window flashes closed. That happened to people
+# who downloaded the repo as a ZIP, where git serves the raw blobs.
+#
+# eol=crlf here fixes line endings on checkout and in `git archive`.
+# Keeping the files ASCII (enforced by a test) is the real safety net: plain
+# ASCII works even if LF somehow slips through.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.vbs text eol=crlf

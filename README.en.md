@@ -133,7 +133,8 @@ cd ../..
 > Not into typing? Double-click **`LifeOS-setup.cmd`** in the repo root: it checks your Python / Node
 > versions, creates the venv, installs dependencies and builds the frontend, and tells you in plain
 > language what is missing. Then double-click `LifeOS.vbs`. Add `dev` as an argument to also install
-> the test and lint tooling.
+> the test and lint tooling. The script's own messages are ASCII-only English, so they never garble
+> on a non-English Windows code page.
 
 Generate some fake data to see what it looks like (**never mix real data in**):
 

@@ -39,6 +39,15 @@ describe('本地化格式', () => {
     expect(text).toContain('30')
   })
 
+  it('UTC 时间戳按目标时区换算，不把 UTC 的时与分直接显示出来', () => {
+    // 后端 created_at 是 UTC（+00:00）：东八区应显示 09:05，而不是 01:05
+    const text = formatDateTime('2026-10-20T01:05:00+00:00', {
+      timeZone: 'Asia/Shanghai',
+    })
+    expect(text).toContain('09')
+    expect(text).not.toContain('01')
+  })
+
   it('数字按语言加千分位；没值返回空串', () => {
     expect(formatNumber(1234567)).toContain('1')
     expect(formatNumber(1234567)).toMatch(/[,.٬\s]/)

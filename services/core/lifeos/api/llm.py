@@ -47,6 +47,7 @@ def _payload(state: AppState) -> dict:
         "base_url": cfg.llm_base_url,
         "timeout_seconds": cfg.llm_timeout_seconds,
         "max_retries": cfg.llm_max_retries,
+        "max_tokens": cfg.llm_max_tokens,
         "api_key_set": bool(cfg.llm_provider and api_key(cfg.llm_provider)),
         "status": _status(state),
         "providers": [provider.as_dict() for provider in PROVIDERS],
@@ -98,5 +99,6 @@ def put_llm_settings(
         base_url=base_url,
         timeout_seconds=body.timeout_seconds,
         max_retries=body.max_retries,
+        max_tokens=body.max_tokens or state.config.llm_max_tokens,
     )
     return _payload(state)

@@ -346,6 +346,8 @@ export const api = {
     base_url: string
     timeout_seconds: number
     max_retries: number
+    /** 输出 token 上限；省略时沿用服务端当前值。 */
+    max_tokens?: number
     api_key?: string
     clear_api_key?: boolean
   }) =>

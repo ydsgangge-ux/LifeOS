@@ -25,7 +25,7 @@ from typing import Any
 
 from ..analytics.service import AnalyticsService
 from ..domain.errors import InvalidInputError
-from ..i18n import t
+from ..i18n import message, t
 from ..privacy import (
     LOCKED_AGE_BANDS,
     load_whitelist,
@@ -34,12 +34,19 @@ from ..privacy import (
     read_policy,
 )
 from ..privacy.audit import payload_digest
-from .agents import run_domain_agents, run_integration
+from .agents import (
+    SOURCE_KINDS,
+    AgentRun,
+    run_domain_agents,
+    run_integration,
+    run_source_integration,
+    source_digest,
+)
 from .child_filter import build_child_report
 from .degrade import build_degraded
 from .prompts import load_prompt
 from .render import render_output
-from .store import get_report, save_report
+from .store import get_report, reports_in_period, save_report
 
 # 报告类型 → 出站用途（第 9.1 节、第 9.4 节）
 KIND_TO_PURPOSE = {
@@ -47,9 +54,14 @@ KIND_TO_PURPOSE = {
     "monthly": "monthly_report",
     "yearly": "yearly_report",
 }
-# 分领域 agent 与整合调用各用一份共享提示词；周期类型由事实包的 period.kind 表达。
+# 分领域 agent 共用一份壳；整合调用按周期各用一份提示词，章节因此各不相同：
+# 周报写跨领域与小实验，月报写计划去留与一致性，年报写年度回顾。
 DOMAIN_PROMPT = "domain"
-INTEGRATION_PROMPT = "integration"
+KIND_PROMPT = {
+    "weekly": "weekly",
+    "monthly": "monthly",
+    "yearly": "yearly",
+}
 
 _PLACEHOLDER = "[[fact:"
 _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
@@ -99,8 +111,19 @@ def _summary_md(kind: str, output: dict[str, Any]) -> str:
                 lines.append(summary.strip())
             for finding in row.get("findings") or []:
                 lines.append(_bullet(finding))
+            # 建议单独成段：总结说发生了什么、分析说意味着什么、建议说下一步做什么
+            advice = row.get("advice")
+            if isinstance(advice, list) and advice:
+                lines.append(f"**{t('report.section.advice')}**")
+                lines.extend(_bullet(item) for item in advice)
+            gaps = row.get("gaps")
+            if isinstance(gaps, list) and gaps:
+                lines.append(f"**{t('report.section.domain_gaps')}**")
+                lines.extend(_bullet(item) for item in gaps)
     for key, value in output.items():
         if key in ("headline", "domains", "ai_usage", "no_data_domains"):
+            continue
+        if value in (None, "", [], {}):
             continue
         label = t(f"report.section.{key}")
         lines.append(f"## {label if label != f'report.section.{key}' else key}")
@@ -148,34 +171,63 @@ def generate_report(
     anchor = read_anchor(conn)
     income = monthly_income_value(analytics, kind=kind, end=end, start=start)
     domain_template = load_prompt(DOMAIN_PROMPT, cfg.prompts_dir)
-    integration_template = load_prompt(INTEGRATION_PROMPT, cfg.prompts_dir)
+    integration_template = load_prompt(KIND_PROMPT[kind], cfg.prompts_dir)
 
-    # 3. 分领域 agent：有数据才调用，空领域跳过
-    run = run_domain_agents(
-        analytics,
-        facts,
-        whitelist=whitelist,
-        policy=policy,
-        anchor=anchor,
-        income_value=income,
-        config=cfg,
-        transport=transport,
-        template=domain_template,
-    )
-
-    # 4. 整合调用：只读各领域小结 + 相关候选 + 异常 + 缺口
-    result, reason = run_integration(
-        analytics,
-        facts,
-        run.rows,
-        whitelist=whitelist,
-        policy=policy,
-        anchor=anchor,
-        income_value=income,
-        config=cfg,
-        transport=transport,
-        template=integration_template,
-    )
+    # 3. 分领域 agent：只有周报会跑。
+    #    月报/年报不再重读原始记录、也不重跑 13 个领域顾问：它们读下一层报告
+    #    已经写好的「总结 + 评价」，一次调用完成整份上层报告（成本由此降一个量级）。
+    run = AgentRun()
+    if kind == "weekly":
+        run = run_domain_agents(
+            analytics,
+            facts,
+            whitelist=whitelist,
+            policy=policy,
+            anchor=anchor,
+            income_value=income,
+            config=cfg,
+            transport=transport,
+            template=domain_template,
+        )
+        # 4. 整合调用：只读各领域小结 + 相关候选 + 异常 + 缺口
+        result, reason = run_integration(
+            analytics,
+            facts,
+            run.rows,
+            whitelist=whitelist,
+            policy=policy,
+            anchor=anchor,
+            income_value=income,
+            config=cfg,
+            transport=transport,
+            template=integration_template,
+        )
+    else:
+        source_kind = SOURCE_KINDS[kind]
+        sources = source_digest(
+            source_kind,
+            reports_in_period(
+                conn,
+                kind=source_kind,
+                start=str(period.get("start") or ""),
+                end=str(period.get("end") or ""),
+            ),
+        )
+        if not sources:
+            result, reason = None, message("report.degrade.no_sources")
+        else:
+            result, reason = run_source_integration(
+                analytics,
+                facts,
+                sources,
+                whitelist=whitelist,
+                policy=policy,
+                anchor=anchor,
+                income_value=income,
+                config=cfg,
+                transport=transport,
+                template=integration_template,
+            )
 
     # 提示词与指标的版本/指纹一并存入报告，供复现（NFR-06、第 9.4 / 8.2 节）
     metrics_fp = analytics.registry.fingerprint()
@@ -189,16 +241,17 @@ def generate_report(
     if result is not None:
         usage = run.usage
         usage.merge(result.usage)
-        output = {
+        output: dict[str, Any] = {
             "headline": result.headline,
-            "domains": run.rows,
-            "cross_domain": result.cross,
-            "experiments": result.experiments,
-            "data_gaps": result.data_gaps,
-            "uncertainty": result.uncertainty,
-            "no_data_domains": run.skipped,
+            # 整合章节由提示词按周期决定（周报 cross_domain/experiments、
+            # 月报/年报 evaluation/advice），这里原样合入，阅读器按 output 的键通用渲染。
+            **result.sections,
             "ai_usage": usage.as_dict(degraded_domains=run.degraded),
         }
+        if kind == "weekly":
+            # 月报/年报不再管领域，也就不再有分领域小结这一屏（按用户口径收敛）
+            output["domains"] = run.rows
+            output["no_data_domains"] = run.skipped
         rendered = render_output(output, facts)
         report_id = save_report(
             conn,

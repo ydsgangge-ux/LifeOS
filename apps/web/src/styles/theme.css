@@ -735,9 +735,11 @@ label {
 /* 报告：一句话总结与折叠后的依据（第 9.7 节） */
 .report-headline {
   font-size: var(--font-size-md);
-  font-weight: 600;
-  line-height: 1.5;
+  font-weight: 400;
+  line-height: 1.75;
   margin: var(--space-3) 0 var(--space-4);
+  /* 总结写成一到三段，保留段落换行 */
+  white-space: pre-wrap;
 }
 
 /* 报告：AI 概览标记（正文均由模型按事实层撰写，需要一眼可辨） */

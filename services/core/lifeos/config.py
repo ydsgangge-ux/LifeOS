@@ -84,6 +84,10 @@ class AppConfig:
     llm_base_url: str = ""
     llm_timeout_seconds: int = 60
     llm_max_retries: int = 2
+    # 输出长度只由 token 上限控制，不再在提示词里限制句数/字数。推理型模型的
+    # 内部思考也记在这份预算里：8000 实测被思考吃掉七千多、正文 JSON 被截断，
+    # 所以默认一万六，让正文拿到约八千。
+    llm_max_tokens: int = 16000
 
     weekly_cron: str = "0 21 * * 0"
     monthly: str = "last_day"
@@ -151,6 +155,7 @@ def load_config(data_dir: str | Path | None = None) -> AppConfig:
     cfg.llm_base_url = llm.get("base_url", cfg.llm_base_url)
     cfg.llm_timeout_seconds = int(llm.get("timeout_seconds", cfg.llm_timeout_seconds))
     cfg.llm_max_retries = int(llm.get("max_retries", cfg.llm_max_retries))
+    cfg.llm_max_tokens = int(llm.get("max_tokens", cfg.llm_max_tokens))
     cfg.weekly_cron = reports.get("weekly_cron", cfg.weekly_cron)
     cfg.monthly = reports.get("monthly", cfg.monthly)
     return cfg
@@ -198,6 +203,7 @@ def save_llm_settings(
     base_url: str,
     timeout_seconds: int,
     max_retries: int,
+    max_tokens: int,
 ) -> None:
     """把非敏感 LLM 设置写回数据目录的 config.toml，并同步内存配置。
 
@@ -219,6 +225,7 @@ def save_llm_settings(
             "base_url": base_url,
             "timeout_seconds": timeout_seconds,
             "max_retries": max_retries,
+            "max_tokens": max_tokens,
         }
     )
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -232,3 +239,4 @@ def save_llm_settings(
     config.llm_base_url = base_url
     config.llm_timeout_seconds = timeout_seconds
     config.llm_max_retries = max_retries
+    config.llm_max_tokens = max_tokens

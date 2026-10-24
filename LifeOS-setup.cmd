@@ -1,17 +1,22 @@
 @echo off
 chcp 65001 >nul
 setlocal
-title LifeOS 一键安装依赖
+title LifeOS setup
 
 rem ---------------------------------------------------------------------------
-rem  从 GitHub 拉下来之后的第一步：把后端与前端依赖装齐，并构建前端。
+rem  One-click dependency setup for a fresh clone.
 rem
-rem  用法：
-rem    双击 LifeOS-setup.cmd           只装运行需要的依赖（普通人用这个）
-rem    LifeOS-setup.cmd dev             连开发用的测试/lint 工具一起装
+rem  Usage:
+rem    double-click LifeOS-setup.cmd        runtime deps only - what normal
+rem                                         users need
+rem    LifeOS-setup.cmd dev                 also install test + lint tooling
 rem
-rem  装完双击根目录的 LifeOS.vbs 就能用（见 README 第六节）。
-rem  需要 Python 3.12+ 与 Node 20+（推荐 22+），脚本会先检查再动手。
+rem  After it finishes, double-click LifeOS.vbs to run LifeOS.
+rem  Requires Python 3.12+ and Node 20+ - both are checked before anything runs.
+rem
+rem  IMPORTANT: keep this file pure ASCII. cmd.exe parses bytes, so non-ASCII
+rem  text here breaks on machines with a different default code page, and the
+rem  window flashes closed before anyone can read the error.
 rem ---------------------------------------------------------------------------
 
 set "ROOT=%~dp0"
@@ -19,12 +24,12 @@ set "MODE=%~1"
 set "PY="
 
 echo ============================================
-echo   LifeOS 一键安装依赖
-echo   装好之后双击 LifeOS.vbs 就能用
+echo   LifeOS dependency setup
+echo   When done, double-click LifeOS.vbs
 echo ============================================
 echo.
 
-rem ---------- 1. 找 Python 3.12+ ----------
+rem ---------- 1. find Python 3.12+ ----------
 call :find_python
 if not defined PY goto :no_python
 
@@ -34,26 +39,28 @@ if errorlevel 1 goto :old_python
 "%PY%" -c "import sys;sys.stdout.write(sys.version.split()[0])" >"%TEMP%\lifeos_pyver.txt" 2>nul
 set /p PYVER=<"%TEMP%\lifeos_pyver.txt"
 del "%TEMP%\lifeos_pyver.txt" >nul 2>nul
-echo [1/4] 找到 Python %PYVER%
+echo [1/4] Python %PYVER% found
 echo         %PY%
 echo.
 
-rem ---------- 2. 虚拟环境 ----------
+rem ---------- 2. virtual environment ----------
 if exist "%ROOT%.venv\Scripts\python.exe" goto :venv_ready
-echo [2/4] 创建虚拟环境 .venv（只需一次）
+
+echo [2/4] Creating virtual environment .venv - one time only
 "%PY%" -m venv "%ROOT%.venv"
 if errorlevel 1 goto :venv_fail
 goto :pip_install
 
 :venv_ready
-echo [2/4] 已有虚拟环境 .venv，直接复用
+echo [2/4] Existing .venv found, reusing it
 
 :pip_install
 set "PY=%ROOT%.venv\Scripts\python.exe"
 echo.
 
-rem ---------- 3. 后端依赖 ----------
-echo [3/4] 安装后端依赖（第一次要下载几十 MB，请耐心等）
+rem ---------- 3. backend dependencies ----------
+echo [3/4] Installing backend dependencies
+echo         First run downloads tens of MB, please wait
 "%PY%" -m pip install --upgrade pip >nul 2>nul
 if /i "%MODE%"=="dev" goto :pip_dev
 "%PY%" -m pip install -e "%ROOT%services\core"
@@ -61,14 +68,14 @@ if errorlevel 1 goto :pip_fail
 goto :npm_step
 
 :pip_dev
-echo         模式：dev（含 pytest / ruff / mypy 等）
+echo         Mode: dev - includes pytest / ruff / mypy
 "%PY%" -m pip install -e "%ROOT%services\core[dev]"
 if errorlevel 1 goto :pip_fail
 goto :npm_step
 
 :npm_step
 echo.
-echo [4/4] 安装前端依赖并构建页面
+echo [4/4] Installing frontend dependencies and building the web UI
 where npm >nul 2>nul
 if errorlevel 1 goto :no_node
 
@@ -76,49 +83,49 @@ for /f "tokens=1 delims=." %%m in ('node -v 2^>nul') do set "NODE_MAJOR=%%m"
 set "NODE_MAJOR=%NODE_MAJOR:v=%"
 if "%NODE_MAJOR%"=="" goto :npm_install
 if %NODE_MAJOR% LSS 20 goto :node_too_old
-if %NODE_MAJOR% LSS 22 echo        提示：Node 版本偏低（建议 22+），构建可能失败
+if %NODE_MAJOR% LSS 22 echo         Note: Node %NODE_MAJOR% is old - 22+ recommended
 
 :npm_install
 cd /d "%ROOT%apps\web"
-echo         正在安装 npm 依赖...
+echo         Installing npm packages...
 call npm install
 if errorlevel 1 goto :npm_mirror
 goto :npm_build
 
 :npm_mirror
 echo.
-echo         官方源不通（常见于国内网络），换成镜像再试一次...
+echo         Official registry unreachable - retrying via mirror
 set "npm_config_registry=https://registry.npmmirror.com"
 call npm install --no-package-lock
 if errorlevel 1 goto :npm_fail
 
 :npm_build
 echo.
-echo         正在构建前端...
+echo         Building the web UI...
 call npm run build
 if errorlevel 1 goto :build_fail
 
 echo.
 echo ============================================
-echo   装好了
+echo   Done
 echo ============================================
 echo.
-echo   下一步：双击 %ROOT%LifeOS.vbs
-echo   想看日志或启动失败：双击 LifeOS-debug.cmd
-echo   第一次打开会自动创建数据目录，没有安装向导。
+echo   Next step: double-click LifeOS.vbs
+echo   To see logs or diagnose: double-click LifeOS-debug.cmd
+echo   The data folder is created on first launch, no wizard.
 echo.
-if /i not "%MODE%"=="dev" echo   想做开发（跑测试 / 代码检查）：LifeOS-setup.cmd dev
+echo   For development - tests and linting: LifeOS-setup.cmd dev
 echo.
 pause
 endlocal
 exit /b 0
 
 rem ===========================================================================
-rem  子过程与错误提示
+rem  Subroutines and error messages
 rem ===========================================================================
 
 :find_python
-rem 优先用仓库里已有的 .venv，其次 py 启动器，最后 PATH 里的 python
+rem prefer an existing venv, then the py launcher, then python on PATH
 if exist "%ROOT%.venv\Scripts\python.exe" (
     set "PY=%ROOT%.venv\Scripts\python.exe"
     exit /b 0
@@ -129,64 +136,67 @@ for /f "delims=" %%i in ('python -c "import sys;print(sys.executable)" 2^>nul') 
 exit /b 0
 
 :no_python
-echo [x] 没找到 Python。
+echo [x] Python not found.
 echo.
-echo     请先装 Python 3.12 或更新的版本：https://www.python.org/downloads/
-echo     安装时记得勾选 "Add python.exe to PATH"。
+echo     Install Python 3.12 or newer: https://www.python.org/downloads/
+echo     Tick "Add python.exe to PATH" during installation.
 echo.
-echo     如果你只是想在电脑上用、不想装环境：下载 Release 里的
-echo     LifeOS-win-x64.zip，解压后双击 LifeOS.vbs 即可，不需要 Python。
+echo     Just want to use it without any environment? Download
+echo     LifeOS-win-x64.zip from the Releases page, unzip, double-click
+echo     LifeOS.vbs. No Python needed.
 echo.
 pause
 endlocal
 exit /b 1
 
 :old_python
-echo [x] 当前 Python 版本太旧，需要 3.12 或更新。
+echo [x] Python is too old - 3.12 or newer is required.
 echo         %PY%
 echo.
-echo     装新版后重跑本脚本即可。
+echo     Install a newer version and run this script again.
 pause
 endlocal
 exit /b 1
 
 :venv_fail
-echo [x] 创建虚拟环境失败。
-echo     常见原因是目录不可写，或杀毒软件拦截了 python -m venv。
-echo     也可以把仓库放到一个普通用户目录下再试（例如 D:\LifeOS）。
+echo [x] Could not create the virtual environment.
+echo     Usually the folder is not writable, or antivirus blocked
+echo     python -m venv. Moving the repo to a plain user folder such
+echo     as D:\LifeOS also helps.
 pause
 endlocal
 exit /b 1
 
 :pip_fail
-echo [x] 后端依赖安装失败。上面是 pip 的原始报错。
-echo     网络不好时可以手动加镜像重试：
+echo [x] Backend dependency install failed - see the pip output above.
+echo     If the network is the problem, retry with a mirror:
 echo         .venv\Scripts\python.exe -m pip install -e "services/core" -i https://pypi.tuna.tsinghua.edu.cn/simple
 pause
 endlocal
 exit /b 1
 
 :no_node
-echo [x] 没找到 Node.js（npm 命令）。
+echo [x] Node.js not found - the npm command is missing.
 echo.
-echo     请安装 Node.js 20 以上（推荐 22 LTS）：https://nodejs.org/
-echo     装完重开一个窗口再跑本脚本，PATH 才会生效。
+echo     Install Node.js 20 or newer, 22 LTS recommended: https://nodejs.org/
+echo     Open a new window afterwards so PATH takes effect.
 echo.
-echo     只想要成品、不想装 Node：下载 Release 里的 LifeOS-win-x64.zip。
+echo     Just want the finished product? Download LifeOS-win-x64.zip
+echo     from the Releases page - no Node needed.
 pause
 endlocal
 exit /b 1
 
 :node_too_old
-echo [x] Node 版本太旧（当前 v%NODE_MAJOR%），需要 20 以上。
-echo     请升级后重试：https://nodejs.org/
+echo [x] Node is too old - v%NODE_MAJOR% found, 20 or newer required.
+echo     Upgrade at https://nodejs.org/ and run this script again.
 pause
 endlocal
 exit /b 1
 
 :npm_fail
-echo [x] npm 依赖安装失败（官方源和镜像都试过了）。
-echo     多半是网络或代理问题。可手动重试：
+echo [x] npm install failed - both the official registry and the mirror
+echo     were tried. This is usually network or proxy related. Retry by hand:
 echo         cd apps\web
 echo         npm install --registry=https://registry.npmmirror.com
 pause
@@ -194,8 +204,8 @@ endlocal
 exit /b 1
 
 :build_fail
-echo [x] 前端构建失败。上面是 tsc / vite 的原始报错。
-echo     把这段报错贴到 GitHub Issues 即可。
+echo [x] Frontend build failed - see the tsc / vite output above.
+echo     Paste that output into a GitHub issue and we can look at it.
 pause
 endlocal
 exit /b 1

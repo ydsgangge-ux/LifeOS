@@ -43,9 +43,16 @@ class Whitelist:
     deny_always: frozenset[str]
     transform: dict[str, str]
     free_text: bool = False
+    # 报告内容层：entry_texts.items 里每条允许出现的字段（时间、领域、标题、备注）
+    entry_text_fields: frozenset[str] = frozenset()
     # 通用区块 → 允许字段：决策解读这类非报告用途用它逐块收窄，
     # 不必为每种新用途再加一批专用字段。
     record_fields: dict[str, frozenset[str]] = field(default_factory=dict)
+    # 激进档：raw=true 时不再逐字段扫描标识、金额也不再换算成收入占比。
+    # 报告类用途默认开启，由 schemas/egress/*.yaml 显式声明；想收回只需删掉这一行。
+    raw: bool = False
+    # 金额出站方式：ratio（默认，换算成占收入比例）或 raw（原值 + 币种）
+    money: str = "ratio"
 
 
 def _as_tuple(node: object) -> tuple[str, ...]:
@@ -80,7 +87,10 @@ def parse_whitelist(raw: dict[str, object], purpose: str) -> Whitelist:
         deny_always=frozenset(_as_tuple(raw.get("deny_always"))),
         transform={str(key): str(value) for key, value in transform.items()},
         free_text=bool(allow.get("free_text", False)),
+        entry_text_fields=frozenset(_as_tuple(allow.get("entry_text_fields"))),
         record_fields=_domain_fields(allow.get("record_fields")),
+        raw=bool(raw.get("raw", False)),
+        money=str(transform.get("money") or "ratio"),
     )
 
 

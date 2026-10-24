@@ -4,16 +4,22 @@ setlocal
 title LifeOS
 
 rem ---------------------------------------------------------------------------
-rem  LifeOS 启动入口（命令行/排障用）
+rem  LifeOS launcher - command line / troubleshooting entry point
 rem
-rem  正常使用请直接双击 LifeOS.vbs —— 它用 python.exe + 隐藏窗口拉起，不弹黑窗。
-rem  本 .cmd 保留作排障：双击会闪一下控制台，LifeOS.cmd debug 则前台运行、日志可见。
+rem  Normal use: double-click LifeOS.vbs. It starts python.exe with a hidden
+rem  window, so no black console appears.
+rem  This .cmd is for troubleshooting: double-clicking it flashes a console,
+rem  and "LifeOS.cmd debug" runs in the foreground with the log visible.
 rem
-rem  Python 优先顺序：随包便携版 runtime\python > 仓库 .venv > 系统 PATH 里的 python
+rem  Python lookup order: bundled portable runtime\python > repo .venv > PATH
 rem
-rem  为什么不用 pythonw.exe：它在本机（360 + 腾讯电脑管家）被按「可执行文件」
-rem  粒度拦掉回环连接，asyncio 建事件循环时卡在 socket.socketpair()，核心永不启动。
-rem  同一个 runtime 目录下 python.exe 正常，见 LifeOS.vbs 顶部说明。
+rem  Why not pythonw.exe: on machines running 360 or Tencent PC Manager it is
+rem  blocked per-executable, which kills loopback connections. asyncio then
+rem  hangs in socket.socketpair() while creating the event loop and the core
+rem  never starts. python.exe from the same runtime folder works fine.
+rem  See the notes at the top of LifeOS.vbs.
+rem
+rem  IMPORTANT: keep this file pure ASCII - see LifeOS-setup.cmd for why.
 rem ---------------------------------------------------------------------------
 set "ROOT=%~dp0"
 
@@ -25,12 +31,13 @@ if not exist "%PY%" (
     set "PY=python"
 )
 
-rem lifeos 包在 services\core 下；先切过去，免得依赖调用者当前目录
+rem the lifeos package lives under services\core; switch there so the caller's
+rem current directory does not matter
 cd /d "%ROOT%services\core"
 
 if /i "%~1"=="debug" goto foreground
 
-rem 静默启动：交给 VBS 用 python.exe + 隐藏窗口拉起（不弹黑窗）
+rem silent start - hand off to the VBS launcher so no console window appears
 wscript //nologo "%ROOT%LifeOS.vbs"
 endlocal
 exit /b 0
@@ -40,8 +47,8 @@ exit /b 0
 set "RC=%errorlevel%"
 if not "%RC%"=="0" (
     echo.
-    echo LifeOS 没能启动（错误码 %RC%）。
-    echo 详细日志：%USERPROFILE%\.lifeos\launcher-core.log
+    echo LifeOS failed to start - exit code %RC%.
+    echo Full log: %USERPROFILE%\.lifeos\launcher-core.log
     pause
 )
 endlocal

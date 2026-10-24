@@ -105,6 +105,7 @@ def call(
             api_key=key,
             timeout_seconds=cfg.llm_timeout_seconds,
             max_retries=cfg.llm_max_retries,
+            max_tokens=cfg.llm_max_tokens,
             pricing=load_pricing(cfg.llm_pricing),
             transport=transport,
         )

@@ -1,0 +1,97 @@
+# 扩展指标注册表（v2）：把此前「只入库、不参与分析」的字段补成指标。
+#
+# 与 core.yaml 同一套字段语义；同名 key 由后加载的文件覆盖（文件名排序，
+# core.yaml 在 extended.yaml 之前），所以这里可以顺带修正 core.yaml 的口径。
+#
+# 本版补的口径：
+#   - daily.day_rating / health.sleep_quality / goal.confidence：自评类均值
+#   - health.height / health.weight：身高体重均值（逐期变化由 delta 给出）
+#   - health.sleep.short_days：睡不足阈值的天数
+#   - health.symptom_days：有症状记录的天数
+#   - daily.record_completeness 修正为 ratio：原来 unit 是「天/天」、value_kind
+#     是 number，报告里会渲染成 0.57 而不是 57.1%
+
+version: metrics_v2
+
+metrics:
+  - key: daily.day_rating.mean
+    domain: daily
+    description: i18n:metric.daily.day_rating.mean
+    source: daily_log.day_rating
+    agg: mean
+    grain: day
+    exclude_anomalies: true
+    min_n: 4
+    unit: 分
+
+  - key: health.sleep_quality.mean
+    domain: health
+    description: i18n:metric.health.sleep_quality.mean
+    source: health_log.sleep_quality
+    agg: mean
+    grain: day
+    exclude_anomalies: true
+    min_n: 4
+    unit: 分
+
+  - key: health.height.mean
+    domain: health
+    description: i18n:metric.health.height.mean
+    source: health_log.height_cm
+    agg: mean
+    grain: day
+    exclude_anomalies: false
+    min_n: 1
+    unit: 厘米
+
+  - key: health.weight.mean
+    domain: health
+    description: i18n:metric.health.weight.mean
+    source: health_log.weight_kg
+    agg: mean
+    grain: day
+    exclude_anomalies: false
+    min_n: 1
+    unit: 千克
+
+  - key: health.sleep.short_days
+    domain: health
+    description: i18n:metric.health.sleep.short_days
+    formula: below_threshold
+    params: {table: health_log, column: sleep_hours, threshold: 6}
+    grain: day
+    exclude_anomalies: true
+    min_n: 1
+    unit: 天
+
+  - key: health.symptom_days
+    domain: health
+    description: i18n:metric.health.symptom_days
+    formula: nonempty_days
+    params: {table: health_log, column: symptoms_json}
+    grain: day
+    exclude_anomalies: false
+    min_n: 1
+    unit: 天
+
+  - key: goal.confidence.mean
+    domain: goal
+    description: i18n:metric.goal.confidence.mean
+    source: goal_checkpoint.confidence
+    agg: mean
+    grain: day
+    exclude_anomalies: false
+    min_n: 3
+    unit: 分
+
+  # core.yaml 的口径修正：完整度是比例，不是裸数
+  - key: daily.record_completeness
+    domain: daily
+    description: i18n:metric.daily.record_completeness
+    formula: completeness
+    params: {table: daily_log}
+    grain: day
+    exclude_anomalies: false
+    min_n: 4
+    value_kind: ratio
+    unit: 比例

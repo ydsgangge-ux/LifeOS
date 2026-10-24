@@ -175,11 +175,29 @@ def _optional_int(raw: Any, field: str, path: Path) -> int | None:
         raise InvalidInputError(f"领域镜头 {field} 必须是整数：{path.name}") from exc
 
 
+def _lens_version(path: Path, domain: str) -> int | None:
+    """镜头文件名 → 版本；无版本后缀视为 v1，不符合命名规则的返回 None。"""
+    if path.stem == domain:
+        return 1
+    match = re.fullmatch(rf"{re.escape(domain)}\.v(\d+)", path.stem)
+    return int(match.group(1)) if match else None
+
+
 def load_domain_lens(prompts_dir: Path | str, domain: str) -> DomainLens | None:
-    """加载某个领域的分析镜头；没有镜头文件时返回 None（该领域沿用通用壳）。"""
-    path = Path(prompts_dir) / "domains" / f"{domain}.yaml"
-    if not path.exists():
+    """加载某个领域的最新版分析镜头；没有镜头文件时返回 None（沿用通用壳）。
+
+    镜头同样受 ADR-07 约束：已发布的 `<domain>.yaml` 不再原地改，
+    新版本写成 `<domain>.vN.yaml`，这里取版本号最大的文件。
+    """
+    directory = Path(prompts_dir) / "domains"
+    candidates: list[tuple[int, Path]] = []
+    for path in directory.glob(f"{domain}*.yaml"):
+        version = _lens_version(path, domain)
+        if version is not None:
+            candidates.append((version, path))
+    if not candidates:
         return None
+    path = max(candidates, key=lambda item: item[0])[1]
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     if not isinstance(raw, dict):
         raise InvalidInputError(f"领域镜头格式不合法：{path.name}")

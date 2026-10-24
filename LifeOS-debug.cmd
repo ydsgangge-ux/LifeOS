@@ -1,33 +1,37 @@
 @echo off
 chcp 65001 >nul
 setlocal
-title LifeOS 排障启动
+title LifeOS troubleshooting
 
 rem ---------------------------------------------------------------------------
-rem  LifeOS 保底入口（前台运行，窗口可见）
+rem  LifeOS fallback launcher - runs in the foreground, console visible
 rem
-rem  正常使用请双击 LifeOS.vbs：静默启动，不弹黑窗。
-rem  这个文件是给「双击没反应 / 怀疑没启动 / 想看看日志」时用的：
-rem  它在前台运行核心进程，日志和错误直接出现在这个窗口里。
+rem  Normal use: double-click LifeOS.vbs - silent start, no console window.
+rem  Use this file when nothing seems to happen on double-click, or when you
+rem  want to watch the log: the core process runs here and its output shows
+rem  up directly in this window.
 rem
-rem  注意：关闭这个窗口会停止 LifeOS；不要在这个窗口里选中文字，
-rem  控制台的快速编辑模式会暂停输出，看起来像卡死。
+rem  Note: closing this window stops LifeOS. Do not select text in this
+rem  window - the console quick-edit mode pauses output and looks like a hang.
+rem
+rem  IMPORTANT: keep this file pure ASCII - see LifeOS-setup.cmd for why.
 rem ---------------------------------------------------------------------------
 
 set "ROOT=%~dp0"
 
 echo ============================================
-echo   LifeOS 排障模式（前台运行）
-echo   - 关闭此窗口会停止 LifeOS
-echo   - 不要在此窗口选中文字，否则输出会暂停
-echo   - 完整日志：%USERPROFILE%\.lifeos\launcher-core.log
+echo   LifeOS troubleshooting mode
+echo   - Closing this window stops LifeOS
+echo   - Do not select text here, output pauses
+echo   - Full log: %USERPROFILE%\.lifeos\launcher-core.log
 echo ============================================
 echo.
 
-rem 复用 LifeOS.cmd 的 debug 分支，避免两处各写一套 Python 查找逻辑
+rem reuse the debug branch of LifeOS.cmd instead of duplicating the
+rem Python lookup logic in two places
 call "%ROOT%LifeOS.cmd" debug
 
 echo.
-echo LifeOS 已退出。上面的内容就是这次启动的完整输出。
+echo LifeOS exited. Everything above is the output of this run.
 pause
 endlocal

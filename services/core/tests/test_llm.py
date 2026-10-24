@@ -10,6 +10,8 @@
 
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 from conftest import FastVault
@@ -36,6 +38,7 @@ from lifeos.llm import (
 )
 from lifeos.llm import config as llm_config
 from lifeos.llm import gateway as llm_gateway
+from lifeos.llm.adapter import DEFAULT_MAX_TOKENS
 from lifeos.llm.pricing import parse_pricing
 from lifeos.privacy.audit import STATUS_PREPARED, STATUS_SENT, mark_egress, record_egress
 from lifeos.privacy.gateway import Prepared
@@ -47,7 +50,7 @@ KEY = "sk-test-key"
 
 OK_BODY = {
     "model": MODEL,
-    "choices": [{"message": {"content": '{"ok": true}'}}],
+    "choices": [{"message": {"content": '{"ok": true}'}, "finish_reason": "stop"}],
     "usage": {"prompt_tokens": 1000, "completion_tokens": 500},
 }
 
@@ -120,6 +123,7 @@ def test_complete_success_parses_and_costs() -> None:
 
     result = _complete(handler)
     assert result.text == '{"ok": true}'
+    assert result.finish_reason == "stop"
     assert result.model == MODEL and result.provider == PROVIDER
     assert (result.prompt_tokens, result.completion_tokens) == (1000, 500)
     assert result.attempts == 1
@@ -130,6 +134,21 @@ def test_complete_success_parses_and_costs() -> None:
     assert str(request.url) == f"{BASE_URL}/chat/completions"
     assert request.headers["Authorization"] == f"Bearer {KEY}"
     assert request.headers["Content-Type"] == "application/json"
+    body = json.loads(request.content)
+    assert body["response_format"] == {"type": "json_object"}
+    # 篇幅只由 token 预算控制：不传时用默认值（含推理型模型的思考预算）
+    assert body["max_tokens"] == DEFAULT_MAX_TOKENS
+
+
+def test_complete_sends_callers_max_tokens() -> None:
+    """config.toml 的 llm.max_tokens 要真的发到请求里，而不是写死在适配器。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["max_tokens"] == 1200
+        return httpx.Response(200, json=OK_BODY)
+
+    result = _complete(handler, max_tokens=1200)
+    assert result.text == '{"ok": true}'
 
 
 def test_complete_retries_transient_status() -> None:
@@ -297,6 +316,26 @@ def test_call_requires_key(fast_vault: FastVault, monkeypatch) -> None:
             config=_cfg(),
         )
     assert excinfo.value.reason == REASON_MISSING_KEY
+
+
+def test_call_applies_config_max_tokens(fast_vault: FastVault, monkeypatch) -> None:
+    """网关把 config 里的 llm_max_tokens 透传给适配器（报告篇幅的唯一约束）。"""
+    monkeypatch.setattr(llm_gateway, "api_key", lambda _provider: KEY)
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=OK_BODY)
+
+    call(
+        fast_vault.conn,
+        prepared=_prepared(),
+        system="s",
+        user="u",
+        config=_cfg(llm_max_tokens=5000),
+        transport=httpx.MockTransport(handler),
+    )
+    assert json.loads(seen[0].content)["max_tokens"] == 5000
 
 
 def test_call_records_sent_and_cost(fast_vault: FastVault, monkeypatch) -> None:

@@ -10,12 +10,35 @@ allow:
   # 事实包区块（顺序即出站 JSON 的键序）
   # 注：profile 区块含 age_band 与 locale。locale 本身不是敏感字段，但它决定
   # 出站提示词用哪种语言（P6 W5b.4/A6），故随 profile 区块一并放行、不单独收窄。
-  facts: [facts_version, period, profile, basics, coverage, metrics, domain_facts_version, domain_facts, domain_summaries, plans, insights, anomalies, data_gaps]
+  facts: [facts_version, period, profile, basics, coverage, metrics, entry_texts, domain_facts_version, domain_facts, domain_summaries, goals, plans, insights, anomalies, data_gaps]
 
-  # 分领域 agent 的小结：整合调用只读「领域代号 + 一段小结」，
-  # 小结论断本身已由该领域白名单内的事实生成，不含人名与原文。
+  # 内容层每条记录允许出现的字段；details 是该条记录的全部详情字段
+  # （金额原值、身高体重、症状、睡眠质量、学科、产出描述……）。
+  entry_text_fields: [at, domain, title, note, tags, details]
+
+  # 分领域 agent 的小结：整合调用只读「领域代号 + 一段总结 + 评价」。
+  # 小结由该领域白名单内的事实与 entry_texts 生成：人物已泛称化，但会概括条目内容。
+  # v8 起领域层不再写建议与缺口，所以这两类字段也不在白名单里。
   record_fields:
-    domain_summaries: [domain, summary]
+    # 报告内容层：自动带出本期条目的标题、备注与时间戳。
+    # 姓名在本地先替换成人物代号；手机号/证件号/银行卡/邮箱/网址仍由网关兜底丢弃。
+    entry_texts: [total, included, items]
+    domain_summaries: [domain, summary, findings]
+    # 长期目标：标题、目标值、why_note 都出站，模型才能把建议落在目标上
+    goals:
+      - ref
+      - title
+      - area
+      - horizon
+      - metric_name
+      - metric_unit
+      - direction
+      - baseline
+      - target
+      - target_date
+      - status
+      - why_note
+      - plan_count
     # 基础信息只出结构化枚举与数量，不出职位名（接近自由文本，可能指向身份）
     basics:
       - industry
@@ -110,18 +133,25 @@ allow:
       - plans_linked
       - plans_done
 
-  # 指标：只放聚合与比值。income.total 不在列——它只作金额泛化的本机分母，
-  # 收入绝对值本身比支出更敏感，绝不出站。
+  # 指标：放聚合与比值，也放金额原值（raw 档由 transform.money 控制）
   metrics:
     - daily.mood.mean
     - daily.energy.mean
     - daily.stress.mean
+    - daily.day_rating.mean
     - daily.record_completeness
     - health.sleep.mean_hours
     - health.sleep.std
+    - health.sleep.short_days
+    - health.sleep_quality.mean
     - health.exercise.minutes_total
     - health.exercise.days
     - health.diet_quality.mean
+    - health.height.mean
+    - health.weight.mean
+    - health.symptom_days
+    - goal.confidence.mean
+    - income.total
     - expense.total
     - expense.nonessential_ratio
     - savings_rate
@@ -169,20 +199,22 @@ allow:
 
   anomaly_fields: [count, impact_sum]
 
-  # 自由文本默认不出站；周报允许 api_extended 下用户逐条确认的摘要（第 7.4 节第 4 步）
+  # 自由文本默认不出站；api_extended 下报告会带 entry_texts（本期条目的标题/备注），
+  # 原始 entry.title / entry.note 仍不作为字段出站。confirmed_texts 是页面级预览的补充通道。
   free_text: true
 
 transform:
-  money: relative_to_monthly_income
+  money: raw
   date: week_index
   person: code
 
-# 永不外发的对象（写在这里是为了让审计可读：它解释「为什么这些字段根本不进白名单」）
+# 激进档：报告不再做逐字段标识扫描，金额也不再换算成收入占比。
+# 依据是用户显式选择「把本期全部内容交给厂家 API 分析」；想收回改成 false 即可。
+raw: true
+
+# 永不外发的对象（写在这里是为了让审计可读）。
+# raw 档下详情字段会随 entry_texts.details 出站，但人物姓名仍先换成本地代号。
 deny_always:
   - person.display_name
   - person.note
-  - entry.title
-  - entry.note
-  - txn.amount_minor
-  - dream_record.*
   - attachment.*

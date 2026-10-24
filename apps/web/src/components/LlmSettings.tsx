@@ -30,6 +30,8 @@ export function LlmSettings({ onError, onNotice }: Props) {
   const [clearKey, setClearKey] = useState(false)
   const [timeoutSeconds, setTimeoutSeconds] = useState(60)
   const [retries, setRetries] = useState(2)
+  /** 输出 token 上限：报告不再限制句数/字数，篇幅只由这个预算控制。 */
+  const [maxTokens, setMaxTokens] = useState(16000)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -43,6 +45,7 @@ export function LlmSettings({ onError, onNotice }: Props) {
     setBaseUrl(next.base_url)
     setTimeoutSeconds(next.timeout_seconds)
     setRetries(next.max_retries)
+    setMaxTokens(next.max_tokens)
     setApiKey('')
     setClearKey(false)
   }, [])
@@ -84,6 +87,7 @@ export function LlmSettings({ onError, onNotice }: Props) {
         base_url: baseUrl.trim(),
         timeout_seconds: timeoutSeconds,
         max_retries: retries,
+        max_tokens: maxTokens,
         api_key: apiKey.trim() || undefined,
         clear_api_key: clearKey,
       })
@@ -235,6 +239,18 @@ export function LlmSettings({ onError, onNotice }: Props) {
                     value={retries}
                     onChange={(event) => setRetries(Number(event.target.value))}
                   />
+
+                  <label htmlFor="llm-max-tokens">{t('llm.max_tokens')}</label>
+                  <input
+                    id="llm-max-tokens"
+                    type="number"
+                    min={256}
+                    max={32000}
+                    step={256}
+                    value={maxTokens}
+                    onChange={(event) => setMaxTokens(Number(event.target.value))}
+                  />
+                  <p className="muted">{t('llm.max_tokens_hint')}</p>
                 </>
               )}
             </div>

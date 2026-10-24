@@ -266,7 +266,7 @@ def test_goal_summary_counts_without_titles(fast_vault: FastVault) -> None:
 def test_domain_facts_egress_filters_unlisted_fields(fast_vault: FastVault) -> None:
     """白名单按「领域 → 字段」收窄：没登记的字段直接丢弃，不靠「默认放行」。"""
     facts = {
-        "facts_version": 2,
+        "facts_version": 3,
         "period": {"kind": "weekly", "start": "2026-09-28", "end": "2026-10-04"},
         "profile": {"age_band": "adult", "locale": "zh-CN"},
         "domain_facts_version": 1,

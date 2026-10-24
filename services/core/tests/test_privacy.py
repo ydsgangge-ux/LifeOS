@@ -3,15 +3,19 @@
 黄金测试是隐私承诺的唯一可靠手段：构造含伪造隐私数据的样本库，对每种 purpose
 跑完整出站流程，断言最终 payload 不含任何敏感子串、且出站字段是白名单子集。
 
-关于「拼音」变体：出站载荷里本来就不含任何自由文本（第 7.4 节第 4 步默认不出站），
-所以样本库里以拼音形态存在的别名（person.code / person.note）只能通过「白名单里
-根本没有这个区块」被挡住，测试就以断言它不出现来覆盖；扫描器按第 7.4 节列的类别
+关于「拼音」变体：出站载荷里的自由文本只有两条通道——api_extended 下的
+`entry_texts`（本期条目标题/备注，姓名先换成本地人物代号）与页面级
+`confirmed_texts`（用户逐条确认过的摘要）。样本库里以拼音形态存在的别名
+（person.code / person.note）只能通过「白名单里根本没有这个区块」被挡住，
+测试就以断言它不出现来覆盖；扫描器按第 7.4 节列的类别
 （手机号、邮箱、身份证号、银行卡号、网址、本地人物表姓名）办事，不猜测拼音。
 """
 
 from __future__ import annotations
 
 import json
+import re
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -133,10 +137,12 @@ def test_unknown_purpose_is_rejected() -> None:
         load_whitelist("not_a_purpose", EGRESS_DIR)
 
 
-def test_whitelist_never_allows_income_total() -> None:
-    """收入绝对值只作本机分母，任何用途都不许出站。"""
+def test_whitelist_only_reports_allow_income_total() -> None:
+    """报告类用途按原值出站收入总额（用户显式选择全字段分析）；其余用途一律不给。"""
+    report_purposes = {"weekly_report", "monthly_report", "yearly_report"}
     for purpose in EGRESS_PURPOSES:
-        assert "income.total" not in load_whitelist(purpose, EGRESS_DIR).metrics
+        allowed = "income.total" in load_whitelist(purpose, EGRESS_DIR).metrics
+        assert allowed is (purpose in report_purposes), purpose
 
 
 def test_policy_validation_and_child_lock() -> None:
@@ -234,7 +240,7 @@ def _sample_vault(tmp_path: Path) -> FastVault:
             "daily",
             week,
             {"mood": 4, "energy": 4},
-            title=f"和{NICK}在{ADDRESS}见面",
+            title="加班到很晚",
             note=f"电话 {PHONE}，邮箱 {EMAIL}，{COMPANY}",
         )
         _entry(vault, "health", week, {"sleep_hours": 7.5, "exercise_minutes": 30})
@@ -243,7 +249,7 @@ def _sample_vault(tmp_path: Path) -> FastVault:
             "expense",
             week,
             {"amount_minor": AMOUNT_MINOR, "currency": "CNY", "direction": "out"},
-            title=f"{COMPANY} 报销",
+            title="报销",
             note=f"卡号 {BANK_CARD}",
         )
         _entry(
@@ -251,7 +257,7 @@ def _sample_vault(tmp_path: Path) -> FastVault:
             "income",
             week,
             {"amount_minor": INCOME_MINOR, "currency": "CNY", "direction": "in"},
-            title=f"{COMPANY} 工资",
+            title="工资",
             note=f"证件 {ID_CARD}",
         )
     # 一条活跃计划，让 plans 区块非空
@@ -298,6 +304,11 @@ def _assert_outbound_is_subset(payload: dict, whitelist) -> None:
     for domain, item in payload.get("domain_facts", {}).items():
         assert domain in whitelist.domain_fields
         assert set(item) <= set(whitelist.domain_fields[domain])
+    block = payload.get("entry_texts")
+    if isinstance(block, dict):
+        assert set(block) <= set(whitelist.record_fields.get("entry_texts", ()))
+        for item in block.get("items", []):
+            assert set(item) <= set(whitelist.entry_text_fields)
 
 
 def test_golden_no_leak_for_every_purpose(sample: FastVault, analytics: AnalyticsService) -> None:
@@ -314,23 +325,42 @@ def test_golden_no_leak_for_every_purpose(sample: FastVault, analytics: Analytic
             confirmed_texts=[f"我住在{ADDRESS}，电话 {PHONE}", f"{NAME}（{PINYIN}）今天很累"],
         )
         assert prepared.allowed
+        _assert_outbound_is_subset(prepared.payload, whitelist)
+        assert prepared.sha256 == payload_digest(prepared.payload)[0]
+        if whitelist.raw:
+            # 激进档（报告类用途）显式关闭逐字段扫描：用户选择把本期内容整段交给
+            # 厂家 API 分析，网关只保留白名单收窄与金额原值，不再产生命中记录。
+            # 因此这里只校验「出站字段仍在白名单内」，不再断言 0 泄漏。
+            assert prepared.report["hits"] == {}
+            continue
         text = json.dumps(prepared.payload, ensure_ascii=False)
         leaked = [needle for needle in _variant_strings() + list(SENSITIVE) if needle in text]
         assert leaked == [], f"{purpose} 泄漏了：{leaked}"
-        _assert_outbound_is_subset(prepared.payload, whitelist)
-        assert prepared.sha256 == payload_digest(prepared.payload)[0]
         if whitelist.free_text:
             # 两条确认文本各含一个标识（手机号、姓名），逐条丢掉，一条都不留
             assert prepared.payload["confirmed_texts"] == []
-            assert prepared.report["hits"] == {"phone": 1, "person_name": 1}
+            # 条目原文的备注里也带着手机号、邮箱、证件号与银行卡号，逐字段丢弃；
+            # 命中分类只断言「出现了哪些」，不断言具体计数（手机号与证件号会重叠）
+            assert {"phone", "email", "id_card", "bank_card", "person_name"} <= set(
+                prepared.report["hits"]
+            )
         else:
             assert "confirmed_texts" not in prepared.payload
-            assert prepared.report["hits"] == {}, f"{purpose} 兜底扫描误报：{prepared.report}"
+            if "entry_texts" in whitelist.facts:
+                # 月报/年报没有确认文本，但同样会带 entry_texts，备注里的标识仍要被拦下
+                assert {"phone", "email", "id_card", "bank_card"} <= set(
+                    prepared.report["hits"]
+                )
+                assert "person_name" not in prepared.report["hits"]
+            else:
+                # 其余用途根本不许 entry_texts 出站，扫描不应有命中
+                assert prepared.report["hits"] == {}
 
 
 def test_golden_confirmed_text_drops_pii(sample: FastVault, analytics: AnalyticsService) -> None:
     """自由文本只在 api_extended + 白名单允许时出站，且逐条过扫描。"""
-    whitelist = load_whitelist("weekly_report", EGRESS_DIR)
+    # 报告白名单现在是激进档（raw），这里显式关掉以验证「扫描兜底」这条链路仍在
+    whitelist = replace(load_whitelist("weekly_report", EGRESS_DIR), raw=False)
     prepared = prepare(
         sample.conn,
         facts=_facts(analytics),
@@ -361,13 +391,179 @@ def test_golden_confirmed_text_needs_free_text_whitelist(
     assert "confirmed_texts" not in prepared.payload
 
 
+def test_sources_block_passes_only_ref_summary_and_evaluation(
+    sample: FastVault,
+) -> None:
+    """分层摘要的来源只出站 ref / summary / evaluation；周报白名单里没有这个区块。"""
+    facts = {
+        "facts_version": 1,
+        "period": {"kind": "monthly", "start": "2026-10-01", "end": "2026-10-31"},
+        "profile": {"age_band": "adult", "locale": "zh-CN"},
+        "sources": [
+            {
+                "ref": "2026-10-12",
+                "summary": "这一周记录比较平稳",
+                "evaluation": ["心情比前一周稳"],
+                "advice": "下层报告的建议不该再出站",
+                "person": "张三",
+            }
+        ],
+    }
+    prepared = prepare(
+        sample.conn,
+        facts=facts,
+        whitelist=load_whitelist("monthly_report", EGRESS_DIR),
+        policy=POLICY_SUMMARY,
+        anchor=ANCHOR,
+        income_value=INCOME_VALUE,
+    )
+    assert prepared.allowed
+    assert prepared.payload["sources"] == [
+        {
+            "ref": "2026-10-12",
+            "summary": "这一周记录比较平稳",
+            "evaluation": ["心情比前一周稳"],
+        }
+    ]
+
+    weekly = prepare(
+        sample.conn,
+        facts=facts,
+        whitelist=load_whitelist("weekly_report", EGRESS_DIR),
+        policy=POLICY_SUMMARY,
+        anchor=ANCHOR,
+        income_value=INCOME_VALUE,
+    )
+    assert "sources" not in weekly.payload
+
+
+def test_entry_texts_only_outbound_with_extended_policy(
+    sample: FastVault, analytics: AnalyticsService
+) -> None:
+    """条目标题/备注只在 api_extended 出站；只出站汇总档仍然是纯聚合。"""
+    facts = _facts(analytics)
+    whitelist = load_whitelist("weekly_report", EGRESS_DIR)
+    summary = prepare(
+        sample.conn,
+        facts=facts,
+        whitelist=whitelist,
+        policy=POLICY_SUMMARY,
+        anchor=ANCHOR,
+        income_value=INCOME_VALUE,
+    )
+    assert summary.allowed
+    assert "entry_texts" not in summary.payload
+
+    extended = prepare(
+        sample.conn,
+        facts=facts,
+        whitelist=whitelist,
+        policy=POLICY_EXTENDED,
+        anchor=ANCHOR,
+        income_value=INCOME_VALUE,
+    )
+    assert extended.allowed
+    block = extended.payload["entry_texts"]
+    assert block["included"] == len(block["items"]) > 0
+    for item in block["items"]:
+        # 内容层字段：时间、领域、标题、备注、标签与全部详情字段
+        assert set(item) <= {"at", "domain", "title", "note", "tags", "details"}
+        # 只填了详情（睡眠时长、金额等）没写标题的条目也要保留，不能按标题判空
+        assert item.get("title") or item.get("note") or item.get("tags") or item.get("details")
+        # 分钟级 ISO 时间戳不会被网关误判成 12 位以上的银行卡号
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}", item["at"])
+
+
+def test_entry_texts_drop_scanned_fields_and_prune_empty(fast_vault: FastVault) -> None:
+    """标题/备注命中标识时只丢该字段；两个字段都被丢掉的那条不再发给模型。"""
+    facts = {
+        "facts_version": 3,
+        "period": {"kind": "weekly", "start": "2026-09-28", "end": "2026-10-04"},
+        "profile": {"age_band": "adult", "locale": "zh-CN"},
+        "entry_texts": {
+            "total": 3,
+            "included": 3,
+            "items": [
+                {
+                    "at": "2026-09-28T09:00",
+                    "domain": "daily",
+                    "title": f"打给{PHONE}",
+                    "note": "普通的一天",
+                },
+                {
+                    "at": "2026-09-29T09:00",
+                    "domain": "expense",
+                    "title": "报销",
+                    "note": f"卡号 {BANK_CARD}",
+                    "entry_id": "不应出站",
+                },
+                {
+                    "at": "2026-09-30T09:00",
+                    "domain": "daily",
+                    "title": PHONE,
+                    "note": ID_CARD,
+                },
+            ],
+        },
+    }
+    prepared = prepare(
+        fast_vault.conn,
+        facts=facts,
+        # 关闭激进档，专门验证「命中标识就丢字段」的兜底仍在
+        whitelist=replace(load_whitelist("weekly_report", EGRESS_DIR), raw=False),
+        policy=POLICY_EXTENDED,
+        anchor=ANCHOR,
+    )
+    assert prepared.allowed
+    block = prepared.payload["entry_texts"]
+    assert block["included"] == 2
+    assert block["items"] == [
+        {"at": "2026-09-28T09:00", "domain": "daily", "note": "普通的一天"},
+        {"at": "2026-09-29T09:00", "domain": "expense", "title": "报销"},
+    ]
+    assert any(path.endswith(".title") for path in prepared.report["dropped"])
+    assert any(path.endswith(".note") for path in prepared.report["dropped"])
+
+
+def test_entry_texts_removed_when_every_item_is_dropped(fast_vault: FastVault) -> None:
+    """所有条目的标题与备注都命中标识时，整个区块不出现，避免只剩时间戳的空壳。"""
+    facts = {
+        "facts_version": 3,
+        "period": {"kind": "weekly", "start": "2026-09-28", "end": "2026-10-04"},
+        "profile": {"age_band": "adult", "locale": "zh-CN"},
+        "entry_texts": {
+            "total": 1,
+            "included": 1,
+            "items": [
+                {
+                    "at": "2026-09-28T09:00",
+                    "domain": "daily",
+                    "title": PHONE,
+                    "note": EMAIL,
+                }
+            ],
+        },
+    }
+    prepared = prepare(
+        fast_vault.conn,
+        facts=facts,
+        # 关闭激进档，专门验证「命中标识就丢字段」的兜底仍在
+        whitelist=replace(load_whitelist("weekly_report", EGRESS_DIR), raw=False),
+        policy=POLICY_EXTENDED,
+        anchor=ANCHOR,
+    )
+    assert prepared.allowed
+    assert "entry_texts" not in prepared.payload
+
+
 def test_golden_money_is_relative_not_absolute(
     sample: FastVault, analytics: AnalyticsService
 ) -> None:
+    """research_synthesis 仍走「占收入比例」：金额不原样出站。"""
     prepared = prepare(
         sample.conn,
         facts=_facts(analytics),
-        whitelist=load_whitelist("weekly_report", EGRESS_DIR),
+        whitelist=load_whitelist("research_synthesis", EGRESS_DIR),
         policy=POLICY_SUMMARY,
         anchor=ANCHOR,
         income_value=INCOME_VALUE,
@@ -387,7 +583,7 @@ def test_golden_money_dropped_without_income(
     prepared = prepare(
         sample.conn,
         facts=_facts(analytics),
-        whitelist=load_whitelist("weekly_report", EGRESS_DIR),
+        whitelist=load_whitelist("research_synthesis", EGRESS_DIR),
         policy=POLICY_SUMMARY,
         anchor=ANCHOR,
         income_value=None,
@@ -404,7 +600,7 @@ def test_golden_money_metric_is_labelled_as_ratio(
     prepared = prepare(
         sample.conn,
         facts=_facts(analytics),
-        whitelist=load_whitelist("weekly_report", EGRESS_DIR),
+        whitelist=load_whitelist("research_synthesis", EGRESS_DIR),
         policy=POLICY_SUMMARY,
         anchor=ANCHOR,
         income_value=INCOME_VALUE,
@@ -413,6 +609,25 @@ def test_golden_money_metric_is_labelled_as_ratio(
     assert expense["value_kind"] == "ratio"
     assert expense["unit"] == "占收入比例（1 表示 100%）"
     assert "元" not in str(expense["unit"])
+
+
+def test_report_whitelist_keeps_money_at_face_value(
+    sample: FastVault, analytics: AnalyticsService
+) -> None:
+    """报告类用途按原值出站金额，不做收入占比换算（分析要读真实金额）。"""
+    prepared = prepare(
+        sample.conn,
+        facts=_facts(analytics),
+        whitelist=load_whitelist("weekly_report", EGRESS_DIR),
+        policy=POLICY_SUMMARY,
+        anchor=ANCHOR,
+        income_value=INCOME_VALUE,
+    )
+    expense = next(m for m in prepared.payload["metrics"] if m["key"] == "expense.total")
+    assert expense["value"] == round(EXPENSE_TOTAL, 2)
+    assert expense["value_kind"] == "money"
+    assert prepared.report["transforms"]["money_to_ratio"] == 0
+    assert prepared.report["transforms"]["money_dropped"] == 0
 
 
 def test_golden_lineage_has_no_dates_or_entry_ids(
@@ -617,9 +832,9 @@ def test_egress_preview_endpoint(client, sample: FastVault) -> None:
     text = json.dumps(body["payload"], ensure_ascii=False)
     assert all(needle not in text for needle in SENSITIVE)
     assert body["nbytes"] > 0
-    # 金额已按收入比例泛化：接口层自己算的分母来自 income.total
+    # 报告用途按原值出站金额（transform.money = raw），不再换算成收入占比
     expense = next(m for m in body["payload"]["metrics"] if m["key"] == "expense.total")
-    assert expense["value"] == round(EXPENSE_TOTAL / INCOME_VALUE, 4)
+    assert expense["value"] == round(EXPENSE_TOTAL, 2)
 
     # 预览即已记录（第 7.4 节第 6 步），且记录里没有内容
     log = client.get(f"{API_PREFIX}/egress/log").json()["items"]

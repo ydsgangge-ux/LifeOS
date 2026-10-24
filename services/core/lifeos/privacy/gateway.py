@@ -36,11 +36,14 @@ _FACT_BLOCKS = (
     "basics",
     "coverage",
     "metrics",
+    # 报告的内容层：本期条目标题、备注与时间戳（按用途白名单逐字段收窄）
+    "entry_texts",
     "domain_facts_version",
     "domain_facts",
-    # 分领域 agent 产出的小结（整段文字由该领域已放行的事实生成，不含人名与原文）；
+    # 分领域 agent 产出的小结（整段文字由该领域已放行的事实与 entry_texts 生成）；
     # 只有整合调用会读它，字段由 record_fields.domain_summaries 收窄。
     "domain_summaries",
+    "goals",
     "plans",
     "insights",
     "insights_version",
@@ -48,6 +51,9 @@ _FACT_BLOCKS = (
     "data_gaps",
     # 跨月对比（monthly/yearly）：逐月聚合数字，字段由 record_fields 收窄
     "history",
+    # 分层摘要（monthly/yearly）：下层报告已经写好的「总结 + 评价」。
+    # 内容来自下层报告已放行的事实，字段由 record_fields.sources 收窄。
+    "sources",
     # 决策解读（decision_review）：只发结构化材料，不发人物与原文
     "decision_case",
     "decision_criteria",
@@ -125,6 +131,10 @@ def prepare(
     for block in _FACT_BLOCKS:
         if block not in whitelist.facts or block not in facts:
             continue
+        # 条目原文只在用户显式选择 api_extended 时出站；即便某个调用方
+        # 把完整事实包递进来，「只出站汇总」档也不会把标题/备注带出去。
+        if block == "entry_texts" and policy != POLICY_EXTENDED:
+            continue
         value = facts[block]
         if block == "period":
             value = _transform_period(value, whitelist, anchor, transforms)
@@ -134,8 +144,12 @@ def prepare(
             )
         elif block == "domain_facts":
             value = _filter_domain_facts(value, whitelist)
+        elif block == "entry_texts":
+            value = _filter_entry_texts(value, whitelist)
         elif block == "plans":
             value = _filter_plans(value, whitelist)
+        elif block == "goals":
+            value = _filter_records(value, whitelist.record_fields.get("goals", frozenset()))
         elif block == "insights":
             value = _filter_records(value, whitelist.insight_fields)
         elif block == "anomalies":
@@ -157,7 +171,11 @@ def prepare(
     # 出站前把 i18n 引用与消息对象渲染成目标语言的文字：模型读的是人话，
     # 而不是 i18n:metric.* 这类键（第 7.4 节第 1 步、NFR-08）。
     payload = _localize(payload, _payload_locale(facts))
-    payload = _scrub(payload, "root", names=names, dropped=dropped, hits=hits)
+    # 激进档（报告类用途默认开启）：不再做逐字段标识扫描，金额也保持原值。
+    # 这一档把「报告能不能真正分析内容」放在「零泄漏」之前，由白名单文件显式声明。
+    if not whitelist.raw:
+        payload = _scrub(payload, "root", names=names, dropped=dropped, hits=hits)
+    payload = _prune_entry_texts(payload)
 
     report = {
         "dropped": dropped,
@@ -192,7 +210,7 @@ def _filter_metrics(
         if not isinstance(item, dict) or item.get("key") not in whitelist.metrics:
             continue
         path = f"metrics.{item.get('key')}"
-        if _is_money(item):
+        if _is_money(item) and whitelist.money != "raw":
             for name in _MONEY_FIELDS:
                 raw = _as_float(item.get(name))
                 if name not in item or raw is None:
@@ -232,6 +250,35 @@ def _filter_domain_facts(value: Any, whitelist: Whitelist) -> dict[str, Any]:
         out[domain] = {
             key: field for key, field in item.items() if key in allowed
         }
+    return out
+
+
+def _filter_entry_texts(value: Any, whitelist: Whitelist) -> dict[str, Any]:
+    """内容层逐条收窄：每条只留白名单允许的字段。
+
+    v4 起一条记录只要有标题、备注、标签或详情字段之一就保留——
+    「只填了睡眠时长、没写备注」的条目也应参与分析。
+    """
+    if not isinstance(value, dict):
+        return {}
+    allowed = whitelist.record_fields.get("entry_texts", frozenset())
+    raw_items = value.get("items")
+    items: list[dict[str, Any]] = []
+    for item in raw_items if isinstance(raw_items, list) else []:
+        if not isinstance(item, dict):
+            continue
+        if not (item.get("title") or item.get("note") or item.get("tags") or item.get("details")):
+            continue
+        items.append(
+            {
+                key: field
+                for key, field in item.items()
+                if key in whitelist.entry_text_fields
+            }
+        )
+    out = {key: value[key] for key in value if key in allowed}
+    out["included"] = len(items)
+    out["items"] = items
     return out
 
 
@@ -344,6 +391,25 @@ def _localize_params(params: Any, locale: str) -> dict[str, Any]:
         else:
             out[key] = item
     return out
+
+
+def _prune_entry_texts(payload: dict[str, Any]) -> dict[str, Any]:
+    """扫描后若标题、备注、标签与详情都被丢弃，就不再保留这条空壳。"""
+    block = payload.get("entry_texts")
+    if not isinstance(block, dict):
+        return payload
+    rows = block.get("items")
+    items = [
+        item
+        for item in (rows if isinstance(rows, list) else [])
+        if isinstance(item, dict)
+        and (item.get("title") or item.get("note") or item.get("tags") or item.get("details"))
+    ]
+    if not items:
+        payload = {key: value for key, value in payload.items() if key != "entry_texts"}
+        return payload
+    payload["entry_texts"] = {**block, "included": len(items), "items": items}
+    return payload
 
 
 # -- 逐字段扫描（兜底） -------------------------------------------------------

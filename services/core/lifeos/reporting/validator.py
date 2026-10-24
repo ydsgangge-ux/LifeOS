@@ -3,8 +3,8 @@
 校验发生在「模型输出 → 落库」之间：只要有一条不满足，就把问题列表交回流水线，
 带上错误信息重试一次；仍不满足则整份报告降级（第 9.2 节第 5 步）。
 
-每条 finding 的形状见第 9.3 节表：claim、figures、evidence_refs、strength、
-alternatives，可选 experiment。第 8 条（被纠正过的字段渲染时加标记）由
+每条 finding 的形状见第 9.3 节表：claim、figures、evidence_refs、strength，
+可选 alternatives / experiment。第 8 条（被纠正过的字段渲染时加标记）由
 render 模块在渲染阶段落地，这里不重复检查。
 """
 
@@ -217,12 +217,14 @@ def _check_finding(
         if correlated:
             issues.append(Issue(path, 3, t("report.invalid.strong_correlation")))
 
-    # 规则 4：替代解释不能为空
+    # 规则 4：替代解释可选，但写了就不能是空串
     alternatives = finding.get("alternatives")
-    if not isinstance(alternatives, list) or not [
-        a for a in alternatives if isinstance(a, str) and a.strip()
-    ]:
-        issues.append(Issue(path, 4, t("report.invalid.alternatives_empty")))
+    if alternatives is not None:
+        valid = isinstance(alternatives, list) and (
+            not alternatives or any(isinstance(a, str) and a.strip() for a in alternatives)
+        )
+        if not valid:
+            issues.append(Issue(path, 4, t("report.invalid.alternatives_empty")))
 
     # 规则 5：禁用表述（按语言取词表，见 banned_words）
     banned = banned_words(age_band, locale)

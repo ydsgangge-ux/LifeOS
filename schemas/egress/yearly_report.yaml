@@ -1,18 +1,41 @@
 # 年报出站白名单（第 7.4 节第 2 步）：与月报同构，周期覆盖整年，
-# history 为 12 个月逐月聚合；同样不含自由文本与收入明细。
+# history 为 12 个月逐月聚合；api_extended 下会带上本期条目的标题/备注（entry_texts），
+# 其余自由文本与收入明细仍不出站。
 
 purpose: yearly_report
 
 allow:
   # profile 区块含 age_band 与 locale；locale 决定出站提示词语言（P6 W5b.4/A6），
   # 随 profile 区块放行（locale 非敏感字段）。
-  facts: [facts_version, period, profile, basics, coverage, metrics, domain_facts_version, domain_facts, domain_summaries, plans, insights, anomalies, data_gaps, history]
+  facts: [facts_version, period, profile, basics, coverage, metrics, entry_texts, domain_facts_version, domain_facts, domain_summaries, goals, plans, insights, anomalies, data_gaps, history, sources]
+
+  # 内容层每条记录允许出现的字段；details 是该条记录的全部详情字段
+  entry_text_fields: [at, domain, title, note, tags, details]
 
   # 分领域 agent 的小结：整合调用只读「领域代号 + 一段小结」。
   # 跨月对比（整年 12 个月）：只发逐月聚合数字。income 不进 history，
   # 金额只发支出总额；未登记的字段留在本地。
   record_fields:
-    domain_summaries: [domain, summary]
+    # 报告内容层：本期条目的标题、备注与时间戳（api_extended 才带上）
+    entry_texts: [total, included, items]
+    domain_summaries: [domain, summary, findings, advice]
+    # 分层摘要：下层报告（月报）的引用代号、总结与评价；只有这三样出站
+    sources: [ref, summary, evaluation]
+    # 长期目标：标题、目标值、why_note 都出站，模型才能把建议落在目标上
+    goals:
+      - ref
+      - title
+      - area
+      - horizon
+      - metric_name
+      - metric_unit
+      - direction
+      - baseline
+      - target
+      - target_date
+      - status
+      - why_note
+      - plan_count
     # 基础信息只出结构化枚举与数量，不出职位名
     basics:
       - industry
@@ -120,12 +143,20 @@ allow:
     - daily.mood.mean
     - daily.energy.mean
     - daily.stress.mean
+    - daily.day_rating.mean
     - daily.record_completeness
     - health.sleep.mean_hours
     - health.sleep.std
+    - health.sleep.short_days
+    - health.sleep_quality.mean
     - health.exercise.minutes_total
     - health.exercise.days
     - health.diet_quality.mean
+    - health.height.mean
+    - health.weight.mean
+    - health.symptom_days
+    - goal.confidence.mean
+    - income.total
     - expense.total
     - expense.nonessential_ratio
     - savings_rate
@@ -175,15 +206,15 @@ allow:
   free_text: false
 
 transform:
-  money: relative_to_monthly_income
+  money: raw
   date: week_index
   person: code
 
+# 激进档：报告不再做逐字段标识扫描，金额也不再换算成收入占比。
+raw: true
+
+# 永不外发的对象（写在这里是为了让审计可读）。
 deny_always:
   - person.display_name
   - person.note
-  - entry.title
-  - entry.note
-  - txn.amount_minor
-  - dream_record.*
   - attachment.*

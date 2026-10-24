@@ -3,7 +3,7 @@
 | 策略 | 含义 | 默认适用 |
 | none | 完全不出站；报告走降级模式 | 儿童档、青少年档、新建档案 |
 | api_summary | 只出站事实包中的聚合与代号化结果 | 成人、长者（开启后） |
-| api_extended | 在 api_summary 基础上，允许用户逐条确认的脱敏摘要 | 用户手动开启 |
+| api_extended | 在 api_summary 基础上，出站本期条目标题、备注与时间戳 | 用户手动开启 |
 """
 
 from __future__ import annotations

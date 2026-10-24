@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next'
 
 import { api } from '../lib/api'
 import { resolveI18nRef } from '../i18n'
+import { formatDateTime } from '../lib/format'
 import { renderMessage, strengthLabel, verdictLabel, evidenceRefLabel } from '../lib/labels'
 import type {
   Entry,
@@ -292,7 +293,8 @@ export function ReportReader({ onError, onNotice, readAloud = false, ageBand, ro
           <div className="entry" key={item.id}>
             <div className="head">
               <span className="title">{t(`reports.kind.${item.kind}`)}</span>
-              <span className="when">{item.created_at.slice(0, 16).replace('T', ' ')}</span>
+              {/* created_at 存的是 UTC，按本机时区与界面语言排版，不能直接截串 */}
+              <span className="when">{formatDateTime(item.created_at)}</span>
             </div>
             <div style={{ marginTop: 'var(--space-1)' }}>
               <span className={`tag ${item.status === 'degraded' ? 'anomaly' : 'domain'}`}>
@@ -451,8 +453,9 @@ export function ReportReader({ onError, onNotice, readAloud = false, ageBand, ro
 
   const renderSection = (key: string) => {
     const value = output[key]
-    if (key === 'adjustments' || key === 'experiments') {
+    if (key === 'adjustments' || key === 'experiments' || key === 'advice') {
       // 小实验数组：每项一个「采纳」按钮，索引与后端一致。
+      // 月报/年报的建议层键名是 advice（分层摘要后不再叫 experiments）。
       const list = Array.isArray(value) ? value : []
       return (
         <div key={key}>
@@ -541,7 +544,10 @@ export function ReportReader({ onError, onNotice, readAloud = false, ageBand, ro
         <span className={`tag ${report.status === 'degraded' ? 'anomaly' : 'domain'}`}>
           {t(`reports.status.${report.status}`, { defaultValue: report.status })}
         </span>
-        <span className="tag">{t('reports.created_at', { date: report.created_at.slice(0, 16).replace('T', ' ') })}</span>
+        {/* created_at 存的是 UTC，按本机时区与界面语言排版 */}
+        <span className="tag">
+          {t('reports.created_at', { date: formatDateTime(report.created_at) })}
+        </span>
         {!degraded && report.model && (
           <span className="tag domain">
             {t('reports.ai_generated', { model: report.model })}
@@ -615,6 +621,17 @@ export function ReportReader({ onError, onNotice, readAloud = false, ageBand, ro
             const findings = Array.isArray(row.findings)
               ? (row.findings as ReportFinding[])
               : []
+            // 三层分开：简介是「发生了什么」，findings 是「怎么判断」，advice 是「下一步做什么」
+            const advice = Array.isArray(row.advice)
+              ? (row.advice as unknown[]).filter(
+                  (item): item is string => typeof item === 'string' && item.trim() !== '',
+                )
+              : []
+            const gaps = Array.isArray(row.gaps)
+              ? (row.gaps as unknown[]).filter(
+                  (item): item is string => typeof item === 'string' && item.trim() !== '',
+                )
+              : []
             return (
               <div key={`${domain}-${index}`} style={{ marginBottom: 'var(--space-3)' }}>
                 <div className="finding-head">
@@ -629,6 +646,26 @@ export function ReportReader({ onError, onNotice, readAloud = false, ageBand, ro
                 {findings.map((finding, findingIndex) => (
                   <div key={findingIndex}>{renderFinding(finding)}</div>
                 ))}
+                {advice.length > 0 && (
+                  <div className="detail">
+                    <div className="muted">{t('report.section.advice')}</div>
+                    <ul>
+                      {advice.map((item, itemIndex) => (
+                        <li key={itemIndex}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {gaps.length > 0 && (
+                  <div className="detail">
+                    <div className="muted">{t('report.section.domain_gaps')}</div>
+                    <ul>
+                      {gaps.map((item, itemIndex) => (
+                        <li key={itemIndex}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )
           })}

@@ -58,6 +58,8 @@ DETAIL_COLUMNS: dict[str, tuple[str, ...]] = {
     "health_log": (
         "sleep_hours",
         "sleep_quality",
+        "height_cm",
+        "weight_kg",
         "exercise_minutes",
         "exercise_type",
         "diet_quality",

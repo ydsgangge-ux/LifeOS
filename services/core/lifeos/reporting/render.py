@@ -20,8 +20,10 @@ PLACEHOLDER_RE = re.compile(r"\[\[fact:([^\]]+)\]\]")
 _PLAN_CODE_RE = re.compile(r"\bplan_([A-Z][0-9]*)\b")
 _MISSING = object()
 
-# 金额类指标出站时已被换算成「占收入比例」（第 7.4 节第 3 步），因此默认按百分比渲染
-_MONEY_DEFAULT_FORMAT = "percent"
+# 金额指标现在按原值出站（报告用途的 transform.money = raw），
+# 因此本地渲染与出站口径一致：原值 + 单位，不再换算成收入占比。
+# 模型有时会在占位符后面再补一次单位，渲染成「3 天 天」；这里只合并连续重复的单位词
+_REPEATED_UNIT_RE = re.compile(r"(小时|分钟|天|分)\s+\1")
 
 # 只对这些度量字段套用指标的默认格式；n/status 这类元数据按原始值展示，
 # 否则金额指标的样本量会被渲染成「200.0%」
@@ -144,6 +146,10 @@ def format_value(value: Any, fmt: str | None) -> str:
         return f"{_trim(value)} 天"
     if name == "score":
         return f"{_trim(value)} 分"
+    if name == "money":
+        # 金额按原值渲染：出站载荷与本地事实包都是票面金额
+        digits = f"{float(value):,.2f}".rstrip("0").rstrip(".")
+        return f"{digits} {t('report.unit.money')}"
     return _trim(value)
 
 
@@ -176,10 +182,12 @@ def _default_format(resolved: Resolved, ref: str = "") -> str:
                 field = rest[len(resolved.metric_key) + 1 :]
         if field and field not in _MEASURE_FIELDS:
             return "integer" if field in _COUNT_FIELDS else "number"
+        # 金额一律按票面原值渲染（报告用途的 transform.money = raw），
+        # 不再换算成占收入比例；进/出账用同一个格式。
         if resolved.row.get("value_kind") == "money":
-            return _MONEY_DEFAULT_FORMAT
-        # 出站时金额已改成「占收入比例」，value_kind 随之变成 ratio；
-        # 单位文本随语言变化，所以按 value_kind 判定，不依赖具体译文。
+            return "money"
+        # 比值类指标统一按百分比；单位文本随语言变化，按 value_kind 判定，
+        # 不依赖具体译文。
         if resolved.row.get("value_kind") == "ratio":
             return "percent"
         unit = resolved.row.get("unit")
@@ -191,6 +199,8 @@ def _default_format(resolved: Resolved, ref: str = "") -> str:
             return "days"
         if unit == "分":
             return "score"
+        if unit in ("厘米", "千克"):
+            return "decimal1"
         if unit == "比例":
             return "percent"
     return "number"
@@ -240,12 +250,21 @@ def render_claim(
         if resolved is None:
             # 解析不到时不能把 [[fact:字段键]] 原样丢给用户，改成一句人话
             return t("report.missing_fact")
-        text = format_value(resolved.value, formats.get(ref) or _default_format(resolved, ref))
+        fmt = formats.get(ref) or _default_format(resolved, ref)
+        text = format_value(resolved.value, fmt)
         if ref in corrected:
             text += marker
         return text
 
-    return localize_plan_codes(PLACEHOLDER_RE.sub(replace, claim), payload)
+    text = localize_plan_codes(PLACEHOLDER_RE.sub(replace, claim), payload)
+    # 模型偶尔会在自带单位的占位符后再补一个单位（「3 天 天」），合并成一个
+    return _REPEATED_UNIT_RE.sub(r"\1", text)
+
+
+# 机器可读的引用字段保持原样：evidence_refs 与 figures 是校验器、界面反查用的键
+# （plans.plan_C.completion_rate）。一旦被 localize_plan_codes 换成「计划「…」」，
+# 界面就再也解析不出这条依据，只剩「其他事实」。
+_RAW_KEYS = frozenset({"evidence_refs", "figures"})
 
 
 def render_output(output: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
@@ -263,14 +282,17 @@ def render_output(output: dict[str, Any], payload: dict[str, Any]) -> dict[str, 
                 # claim 本身保留原文便于追溯，其余字段（如 alternatives）也要渲染，
                 # 否则它们里面的占位符会原样露给用户
                 rendered = {
-                    key: (value if key == "claim" else visit(value))
+                    key: (value if key == "claim" or key in _RAW_KEYS else visit(value))
                     for key, value in node.items()
                 }
                 rendered["rendered_claim"] = render_claim(
                     node["claim"], node.get("figures"), payload, corrected
                 )
                 return rendered
-            return {key: visit(value) for key, value in node.items()}
+            return {
+                key: (value if key in _RAW_KEYS else visit(value))
+                for key, value in node.items()
+            }
         if isinstance(node, list):
             return [visit(item) for item in node]
         if isinstance(node, str):

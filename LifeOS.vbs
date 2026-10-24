@@ -1,15 +1,21 @@
-' LifeOS 静默启动器（P6 A1：双击即用，且不出现黑色终端窗口）
+' LifeOS silent launcher - double-click to run, with no black terminal window
 '
-' 为什么不用 pythonw.exe：
-'   pythonw.exe 是没有控制台的 GUI 子系统解释器，但它在本机（360 + 腾讯电脑管家
-'   同时开启时）**被按「可执行文件」粒度拦掉了回环连接** —— 实测同一个
-'   runtime\python 目录下，python.exe 的 127.0.0.1 connect/accept 正常，
-'   pythonw.exe 则 100% 超时。而 asyncio 在 Windows 上建事件循环时要用
-'   socket.socketpair()，CPython 在 Windows 的回退实现正是「回环 connect + accept」，
-'   于是核心会永久卡在启动阶段、连握手行都吐不出来（表现为双击后毫无反应）。
+' Why not pythonw.exe:
+'   pythonw.exe is the GUI-subsystem interpreter. On machines running 360 and
+'   Tencent PC Manager together, it gets blocked per-executable and loopback
+'   connections time out 100%. In the same runtime\python folder python.exe
+'   connects and accepts on 127.0.0.1 just fine.
+'   asyncio on Windows calls socket.socketpair() when creating the event loop,
+'   and CPython's fallback implementation is a loopback connect + accept. So
+'   the core hangs forever during startup and never prints the handshake line,
+'   which looks like "double-click does nothing".
 '
-' 所以这里改用 python.exe + 窗口样式 0（隐藏）拉起，既避开被拦的 pythonw.exe，
-' 又不需要任何终端窗口。命令行排障仍用 LifeOS.cmd debug。
+'   Hence python.exe with window style 0 - hidden. This avoids the blocked
+'   pythonw.exe and still shows no console. For command-line troubleshooting
+'   use LifeOS.cmd debug.
+'
+' Keep this file pure ASCII: WSH reads .vbs as ANSI, so non-ASCII text breaks
+' on systems with a different code page.
 
 Option Explicit
 
@@ -20,7 +26,7 @@ Set sh = CreateObject("WScript.Shell")
 
 root = fso.GetParentFolderName(WScript.ScriptFullName)
 
-' Python 三档：随包便携版 > 仓库 .venv > PATH
+' Python lookup: bundled portable runtime > repo .venv > PATH
 py = root & "\runtime\python\python.exe"
 If Not fso.FileExists(py) Then py = root & "\.venv\Scripts\python.exe"
 If Not fso.FileExists(py) Then py = "python"
@@ -30,5 +36,5 @@ sh.CurrentDirectory = coreDir
 
 cmd = """" & py & """ -m lifeos.launcher"
 
-' 0 = 隐藏窗口，False = 不等待（启动器自己会等核心退出）
+' 0 = hidden window, False = do not wait; the launcher waits for the core
 sh.Run cmd, 0, False

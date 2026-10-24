@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 from lifeos.api import API_PREFIX, create_app
 from lifeos.api import llm as llm_api
 from lifeos.config import AppConfig, load_config
+from lifeos.llm.adapter import DEFAULT_MAX_TOKENS
 from lifeos.llm.providers import PROVIDERS
 
 TOKEN = "llm-settings-token-0123456789"
@@ -144,6 +145,24 @@ def test_local_provider_needs_no_key(client, keys) -> None:
     assert result["body"]["api_key_set"] is False
     assert result["body"]["status"] == "ready"
     assert "ollama" not in keys
+
+
+def test_max_tokens_defaults_and_survives_other_edits(client, config, keys, data_dir) -> None:
+    """篇幅只由输出 token 上限控制：有默认值、可改，只改供应商时不被重置。"""
+    body = client.get(f"{API_PREFIX}/llm/settings").json()
+    assert body["max_tokens"] == DEFAULT_MAX_TOKENS
+
+    result = _put(client, api_key=SECRET, max_tokens=5000)
+    assert result["status"] == 200, result
+    assert result["body"]["max_tokens"] == 5000
+    assert config.llm_max_tokens == 5000
+    assert load_config(data_dir).llm_max_tokens == 5000
+
+    # 界面上只改模型、不带这个字段时沿用当前值，不悄悄回到默认
+    result = _put(client, model="deepseek-reasoner")
+    assert result["status"] == 200, result
+    assert result["body"]["max_tokens"] == 5000
+    assert load_config(data_dir).llm_max_tokens == 5000
 
 
 def test_empty_provider_disables_llm(client, keys) -> None:

@@ -26,6 +26,7 @@ from lifeos.analytics import AnalyticsService, stats
 from lifeos.analytics import periods as P
 from lifeos.analytics.correlation import analyze, load_correlation_config
 from lifeos.analytics.diagnosis import diagnose_plan, load_diagnosis_config
+from lifeos.analytics.facts import build_entry_texts
 from lifeos.analytics.metrics import MetricEngine
 from lifeos.analytics.registry import MetricRegistry
 from lifeos.api import API_PREFIX, create_app
@@ -500,7 +501,7 @@ def test_facts_is_idempotent(fast_vault, tmp_path):
     first = service.facts(kind="weekly", end="2026-10-04")
     second = service.facts(kind="weekly", end="2026-10-04")
     assert first == second
-    assert first["facts_version"] == 2
+    assert first["facts_version"] == 4
     assert set(first) >= {
         "period",
         "profile",
@@ -529,6 +530,88 @@ def test_facts_is_idempotent(fast_vault, tmp_path):
         gap["key"] == "facts.gap.domain_empty" and gap["params"]["domain"] == "education"
         for gap in first["data_gaps"]
     )
+
+
+def test_entry_texts_keep_final_entries_with_any_content(fast_vault):
+    """内容层只收正式、未删除的条目；标题/备注/标签/详情任一非空就保留。
+
+    v4 起不再要求标题或备注非空：只填了数值的条目同样要参与分析，
+    否则「设了字段却没进报告」的缺口仍然存在。人物姓名在本地换成代号。
+    """
+    now = now_utc_iso()
+    fast_vault.conn.execute(
+        "INSERT INTO person (id, code, display_name, created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?)",
+        (new_ulid(), "P01", "张三", now, now),
+    )
+    kept = fast_vault.service.entries.create(
+        {
+            "domain": "daily",
+            "occurred_at": "2026-09-28T09:05:00+08:00",
+            "title": "和 张三 复盘",
+            "note": "聊了下一步",
+            "detail": {"mood": 4},
+        }
+    )
+    fast_vault.service.entries.create(
+        {
+            "domain": "daily",
+            "occurred_at": "2026-09-29T09:05:00+08:00",
+            "title": "草稿标题",
+            "note": "草稿备注",
+            "status": "draft",
+        }
+    )
+    deleted = fast_vault.service.entries.create(
+        {
+            "domain": "daily",
+            "occurred_at": "2026-09-30T09:05:00+08:00",
+            "title": "已删除的标题",
+            "note": "已删除的备注",
+            "detail": {"mood": 3},
+        }
+    )
+    fast_vault.service.entries.delete(deleted["id"])
+    # 正式但标题与备注都为空：只要详情非空就仍然保留（v4 口径）
+    _daily(fast_vault, "2026-10-01", 3)
+
+    block = build_entry_texts(fast_vault.conn, date(2026, 9, 28), date(2026, 10, 4))
+    # v4 起标题/备注/标签/详情任一非空即保留：「只填了心情」的条目也要参与分析
+    assert block["total"] == 2
+    assert block["included"] == 2
+    assert [item["title"] for item in block["items"]] == ["和 person_P01 复盘", ""]
+    assert block["items"][0]["note"] == "聊了下一步"
+    assert block["items"][0]["tags"] == []
+    assert block["items"][0]["details"]  # 详情字段（心情）也带出来
+    assert block["items"][1]["details"]  # 只有详情、没有标题备注的条目同样保留
+    assert kept["id"]
+
+
+def test_entry_texts_respect_domain_scope(fast_vault):
+    """领域过滤与 guardian 裁剪共用同一批 domain，别的领域条目不会混进来。"""
+    fast_vault.service.entries.create(
+        {
+            "domain": "health",
+            "occurred_at": "2026-09-28T08:00:00+08:00",
+            "note": "睡得一般",
+            "detail": {"sleep_hours": 6.5},
+        }
+    )
+    block = build_entry_texts(
+        fast_vault.conn,
+        date(2026, 9, 28),
+        date(2026, 10, 4),
+        domains=frozenset({"health"}),
+    )
+    assert block["total"] == 1
+    assert block["items"][0]["domain"] == "health"
+    empty = build_entry_texts(
+        fast_vault.conn,
+        date(2026, 9, 28),
+        date(2026, 10, 4),
+        domains=frozenset({"daily"}),
+    )
+    assert empty == {"total": 0, "included": 0, "items": []}
 
 
 def test_monthly_and_yearly_facts_carry_history(fast_vault, tmp_path):
@@ -666,7 +749,7 @@ def test_facts_endpoint(client):
     response = client.get(f"{API_PREFIX}/facts", params={"period": "weekly", "end": "2026-10-04"})
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["facts_version"] == 2
+    assert body["facts_version"] == 4
     assert "coverage" in body and "plans" in body
     assert "domain_facts" in body
 

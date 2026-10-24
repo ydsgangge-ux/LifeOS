@@ -917,6 +917,8 @@ export interface LlmSettings {
   base_url: string
   timeout_seconds: number
   max_retries: number
+  /** 输出 token 上限：报告篇幅的唯一约束（第 9.2 节）。 */
+  max_tokens: number
   api_key_set: boolean
   status: LlmStatus
   providers: LlmProviderInfo[]

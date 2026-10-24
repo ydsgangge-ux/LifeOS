@@ -57,8 +57,13 @@ released:
   prompts/domain.v3.md: "41ba7243402d52d0aa85bc0dde9c4e94b28a80e6a7e7086f0fba2eda49ff2ae8"
   # domain v4：壳内新增 basics 背景规则（只用于判断建议可行性，不复述、不作证据）。
   prompts/domain.v4.md: "b2d595a03a128a1d61f7015cace18859b4fcaffed3b1bead0f328aee406c9ae6"
+  # domain v5：api_extended 下事实包含本期条目原文（标题/备注/时间戳），
+  # 小结要先用具体内容落脚，再写数字；其余规则同 v4。
+  prompts/domain.v5.md: "2c9238fce393535bd95109d5c2df55c3a221ea1d83b6802b70aa6f7619a4783c"
   # integration v2：整合调用同样带上 basics 背景规则。
   prompts/integration.v2.md: "f7908798cad415009e7a848cee646174763a85598e3b31585675316a2ba985fd"
+  # integration v3：概览与跨领域结论先讲领域小结里的具体事件，再补数字依据。
+  prompts/integration.v3.md: "dacb779b3365b798fa3378e77c58531bf61e1bbf4e225e7b1d2c97f570665541"
   # 镜头 v2：最低数据量降为「一天有记录就写」，并标注哪些领域需要 basics。
   prompts/domains/career.yaml: "a04f5f5c7ff2aff3376b26f420737c498218d9d542e86878469aa2d3ef5917b9"
   prompts/domains/daily.yaml: "520786c4c60b9ad07123305b629ec5fd6b1dab3676e0183a39eabca364ebbc34"
@@ -74,3 +79,46 @@ released:
   # 收入与目标：只出条数、相对变化与状态计数，不出金额、标题与正文。
   prompts/domains/income.yaml: "b32821b25397dfa1059239d0520bb23cd872f1d2e289a3eeb784a8aa56fe5cea"
   prompts/domains/goal.yaml: "d83dbfc8dc3c1048cec4ea7948aa4973529a594d73c7422fa61b270516447f6b"
+  # 镜头 v2：api_extended 下允许读本期条目的标题/备注/时间戳，先说具体内容再给数字；
+  # 各领域的边界（不解梦、不评创意、不做医学结论等）保持不变。
+  prompts/domains/career.v2.yaml: "b6960afbd7b96b64bceb065c7e7b15eba71441a1d2fc114b379a2af980abb702"
+  prompts/domains/daily.v2.yaml: "0428adb9ce98b1301c9471f62cbdc663858553be432f18c745e130866a63dac3"
+  prompts/domains/dream.v2.yaml: "1a4ff58039d53917c193823a6ffcdb8614c3d732fe481663785279aa26c0df66"
+  prompts/domains/education.v2.yaml: "1d09ab870f89d1622e7bbb4ffad9cafabc9adae1ec237121332f7d7fbf3df532"
+  prompts/domains/expense.v2.yaml: "678d3748e82ac5c8c3a4d32761630127cba3b5a1e74bed0438d863171e22659c"
+  prompts/domains/health.v2.yaml: "ffeabd70f40f27bdebf05ae0f3797f977d00af32c29680cab37a6006ffba2479"
+  prompts/domains/hobby.v2.yaml: "34e22f552b0c21363fc569637500c096291dad9186686df56bde97d204fc20b8"
+  prompts/domains/idea.v2.yaml: "e9c4eb76370e5c480fef00a5108010ca952d1232fffdf5909883488bbfff9d35"
+  prompts/domains/income.v2.yaml: "496d4c455afb77a3eb738a7c024cf5799b18d10a0bacfe03072df91f4dad802e"
+  prompts/domains/plan.v2.yaml: "170859ab1fc0a2ed01525c1c3a4929937bddf6dccdfcff4343a01819e18a8482"
+  prompts/domains/relation.v2.yaml: "1d542f2605e2dc5945ab1de2e50a3c8fd94c0bdf61f5d1c7375a63ff81efc0f8"
+  prompts/domains/resource.v2.yaml: "e4be1ce9612e7b78684069011b5a0f8973d4db98c52f25c7fc457bebcd5c28eb"
+  prompts/domains/goal.v2.yaml: "504d549d5bcce940d5dba2355d25a8178a16f179ef36b45351e57efe030401af"
+  # v10（三层分开）：总结 / 分析 / 建议拆成三块，建议允许手写数字（撞车即丢）；
+  # 周期提示词真正接进管线——周报/月报/年报各加载自己的文件，不再共用 integration。
+  prompts/weekly.v10.md: "5dd1a7f6d1fd3fc4831818a09a760d26f239733ab206a7f8f16e4f66235ddace"
+  prompts/monthly.v10.md: "299fba4330edee2b89e19333f326f77d60afc98d7099121f03fdbb55aab0b42e"
+  prompts/yearly.v3.md: "79c1632cc1199f2d380106d74f44c4d12c4c70c104d90444668acbfc2d0ce36d"
+  # domain v6：领域顾问三块输出（summary / findings / advice），
+  # findings 的 alternatives 改为可选，建议可引用通用知识但须标明不是数据结论。
+  prompts/domain.v6.md: "15af726380f6603b2ed9c77438f96239098ff0da64267d76ee3ed138aa9a5523"
+  # 指标扩展表：新增日常自评、睡眠天数、身体测量、症状天数与目标信心；
+  # core.yaml 先加载、extended.yaml 后加载（同名键后者覆盖）。
+  metrics/extended.yaml: "32d0f63880854a108212149bc4ed164258cf08db79db1b158ab754e37b06a54c"
+  # v11 / domain v7（写透）：取掉句数与条数上限，篇幅只由输出的 8000 token 预算控制；
+  # 三块分工不变——headline 只写总结，分析进各分析章节，建议进 experiments/adjustments。
+  prompts/weekly.v11.md: "e22849dfa75609b17d5c819682f59cfd7b37f9ce3b3f4c4b7a82803c0519f7bd"
+  prompts/monthly.v11.md: "9ed564688419dc3a551b6d24f58b7ba5bb094ff912227515d5514f853b4bf4c1"
+  prompts/yearly.v4.md: "a486757e7712ff8f787c1b0de9dedaa7d7b0d17689e0e25caed518f73dc38559"
+  prompts/domain.v7.md: "f2952bd10c8fefc7249d0d6ce8ba565216882e5c690ffe4055aea1e6a23b3415"
+  # yearly v5：整合载荷里没有 entry_texts，第 16 条把可引用的依据路径钉死，
+  # 避免照抄领域小结的 evidence_refs 触发「依据字段不在事实包中」而整份降级。
+  prompts/yearly.v5.md: "8c1d8a529c13d54f4f51ba2c980c16a53a464268d853f3b92ce1963f8ccee60c"
+  # v12 / domain v8（分层摘要）：领域小结只留总结 + 评价，不再写建议与数据缺口；
+  # 周报三块收敛（总结 / 评价 / 建议）且只保留格式规则；
+  # 月报只读周报的「总结 + 评价」，年报告只读月报的「总结 + 评价」，
+  # 两者都不再跑领域 agent（每份只调用一次模型）。
+  prompts/weekly.v12.md: "24bb9cc03919f5e341e3a8309784b6299502d148fabb927a90255ae2156185bf"
+  prompts/monthly.v12.md: "21a4c1c4fec1ad78e4a717ebf5da037e8240199ff3abff33f4d0fba78256700b"
+  prompts/yearly.v6.md: "fc8c52cef8cf29763f79a56984b22fece05838f67d23e61abe268901cffa632c"
+  prompts/domain.v8.md: "0f079a5778f5b2931a724a4b5c01145287de2cfd7916ffba20ed20c3ddb271fa"

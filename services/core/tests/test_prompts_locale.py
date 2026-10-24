@@ -84,10 +84,13 @@ def test_rendered_prompts_carry_target_language():
             assert name in system, f"{prompt_id}/{locale} 未注入语言名 {name}"
 
 
-def test_v9_is_the_latest_version():
-    for prompt_id in ("weekly", "monthly"):
-        assert load_prompt(prompt_id, AppConfig().prompts_dir).version == 9
-    assert load_prompt("yearly", AppConfig().prompts_dir).version == 2
+def test_latest_versions():
+    """v12 起周报/月报/年报都收敛成三块；领域小结 v8 只留总结 + 评价。"""
+    prompts_dir = AppConfig().prompts_dir
+    assert load_prompt("weekly", prompts_dir).version == 12
+    assert load_prompt("monthly", prompts_dir).version == 12
+    assert load_prompt("yearly", prompts_dir).version == 6
+    assert load_prompt("domain", prompts_dir).version == 8
 
 
 # ---------------------------------------------------------------------------
@@ -186,6 +189,70 @@ def test_v9_prompts_registered_with_hash():
     )
 
 
+def test_v10_prompts_registered_with_hash():
+    """v10 起周期提示词真正接进管线，domain v6 拆成三块输出；同样必须登记 sha256。"""
+    manifest = load_manifest(AppConfig().schemas_dir)
+    assert manifest["prompts/weekly.v10.md"] == (
+        "5dd1a7f6d1fd3fc4831818a09a760d26f239733ab206a7f8f16e4f66235ddace"
+    )
+    assert manifest["prompts/monthly.v10.md"] == (
+        "299fba4330edee2b89e19333f326f77d60afc98d7099121f03fdbb55aab0b42e"
+    )
+    assert manifest["prompts/yearly.v3.md"] == (
+        "79c1632cc1199f2d380106d74f44c4d12c4c70c104d90444668acbfc2d0ce36d"
+    )
+    assert manifest["prompts/domain.v6.md"] == (
+        "15af726380f6603b2ed9c77438f96239098ff0da64267d76ee3ed138aa9a5523"
+    )
+
+
+def test_v11_prompts_registered_with_hash():
+    """v11 / domain v7 取掉句数与条数上限，篇幅交给 token 预算；同样必须登记 sha256。"""
+    manifest = load_manifest(AppConfig().schemas_dir)
+    assert manifest["prompts/weekly.v11.md"] == (
+        "e22849dfa75609b17d5c819682f59cfd7b37f9ce3b3f4c4b7a82803c0519f7bd"
+    )
+    assert manifest["prompts/monthly.v11.md"] == (
+        "9ed564688419dc3a551b6d24f58b7ba5bb094ff912227515d5514f853b4bf4c1"
+    )
+    assert manifest["prompts/yearly.v4.md"] == (
+        "a486757e7712ff8f787c1b0de9dedaa7d7b0d17689e0e25caed518f73dc38559"
+    )
+    assert manifest["prompts/domain.v7.md"] == (
+        "f2952bd10c8fefc7249d0d6ce8ba565216882e5c690ffe4055aea1e6a23b3415"
+    )
+
+
+def test_yearly_v5_prompt_registered_with_hash():
+    """年报 v5 新增第 16 条，把 evidence_refs 限定在本次载荷里真实存在的路径（ADR-07）。"""
+    manifest = load_manifest(AppConfig().schemas_dir)
+    assert manifest["prompts/yearly.v5.md"] == (
+        "8c1d8a529c13d54f4f51ba2c980c16a53a464268d853f3b92ce1963f8ccee60c"
+    )
+
+
+def test_v12_prompts_registered_with_hash():
+    """v12 分层摘要：周报三块收敛，月报/年报只读下层报告的总结与评价（ADR-07）。"""
+    manifest = load_manifest(AppConfig().schemas_dir)
+    expected = {
+        "prompts/weekly.v12.md": (
+            "24bb9cc03919f5e341e3a8309784b6299502d148fabb927a90255ae2156185bf"
+        ),
+        "prompts/monthly.v12.md": (
+            "21a4c1c4fec1ad78e4a717ebf5da037e8240199ff3abff33f4d0fba78256700b"
+        ),
+        "prompts/yearly.v6.md": (
+            "fc8c52cef8cf29763f79a56984b22fece05838f67d23e61abe268901cffa632c"
+        ),
+        # domain v8：领域小结只剩总结 + 评价，不再写建议与数据缺口。
+        "prompts/domain.v8.md": (
+            "0f079a5778f5b2931a724a4b5c01145287de2cfd7916ffba20ed20c3ddb271fa"
+        ),
+    }
+    for rel, digest in expected.items():
+        assert manifest[rel] == digest, f"{rel} 未登记或哈希不一致"
+
+
 def test_v1_hashes_untouched():
     manifest = load_manifest(AppConfig().schemas_dir)
     for rel, expected in _V1_HASHES.items():
@@ -193,12 +260,12 @@ def test_v1_hashes_untouched():
 
 
 # ---------------------------------------------------------------------------
-# 分领域 agent：通用壳 + 领域镜头（domain.v4）
+# 分领域 agent：通用壳 + 领域镜头（domain.v8）
 # ---------------------------------------------------------------------------
 def test_domain_prompt_injects_domain_lens():
     """通用壳 + 领域镜头：每个领域只拿到自己的问题与关注点，没有镜头就只给壳。"""
     template = load_prompt("domain", AppConfig().prompts_dir)
-    assert template.version == 4
+    assert template.version == 8
 
     def _system(domain: str) -> str:
         lens = load_domain_lens(AppConfig().prompts_dir, domain)
@@ -225,7 +292,7 @@ def test_domain_prompt_injects_domain_lens():
     assert "收入记录" in income
     assert "睡眠" not in income
     assert "完成率" not in income
-    assert "你是个人数据报告里的" in income
+    assert "你是「" in income and "这个领域的顾问" in income
 
 
 def test_only_some_domains_need_basics():
@@ -268,12 +335,44 @@ def test_domain_v3_and_lenses_registered_with_hash():
     assert manifest["prompts/domain.v4.md"] == (
         "b2d595a03a128a1d61f7015cace18859b4fcaffed3b1bead0f328aee406c9ae6"
     )
+    assert manifest["prompts/domain.v5.md"] == (
+        "2c9238fce393535bd95109d5c2df55c3a221ea1d83b6802b70aa6f7619a4783c"
+    )
     assert manifest["prompts/integration.v1.md"] == (
         "8925a461e27f34363445e244c8b1309acfd383338ec11f1cb15b8944877e646b"
     )
     assert manifest["prompts/integration.v2.md"] == (
         "f7908798cad415009e7a848cee646174763a85598e3b31585675316a2ba985fd"
     )
+    assert manifest["prompts/integration.v3.md"] == (
+        "dacb779b3365b798fa3378e77c58531bf61e1bbf4e225e7b1d2c97f570665541"
+    )
     for domain in ("daily", "expense", "resource", "relation", "health"):
         assert load_domain_lens(AppConfig().prompts_dir, domain) is not None
         assert f"prompts/domains/{domain}.yaml" in manifest
+
+
+def test_domain_lens_v2_reads_entry_content():
+    """v2 镜头允许读本期条目的标题/备注/时间，并已全部登记 sha256（ADR-07）。"""
+    manifest = load_manifest(AppConfig().schemas_dir)
+    expected = {
+        "career": "b6960afbd7b96b64bceb065c7e7b15eba71441a1d2fc114b379a2af980abb702",
+        "daily": "0428adb9ce98b1301c9471f62cbdc663858553be432f18c745e130866a63dac3",
+        "dream": "1a4ff58039d53917c193823a6ffcdb8614c3d732fe481663785279aa26c0df66",
+        "education": "1d09ab870f89d1622e7bbb4ffad9cafabc9adae1ec237121332f7d7fbf3df532",
+        "expense": "678d3748e82ac5c8c3a4d32761630127cba3b5a1e74bed0438d863171e22659c",
+        "goal": "504d549d5bcce940d5dba2355d25a8178a16f179ef36b45351e57efe030401af",
+        "health": "ffeabd70f40f27bdebf05ae0f3797f977d00af32c29680cab37a6006ffba2479",
+        "hobby": "34e22f552b0c21363fc569637500c096291dad9186686df56bde97d204fc20b8",
+        "idea": "e9c4eb76370e5c480fef00a5108010ca952d1232fffdf5909883488bbfff9d35",
+        "income": "496d4c455afb77a3eb738a7c024cf5799b18d10a0bacfe03072df91f4dad802e",
+        "plan": "170859ab1fc0a2ed01525c1c3a4929937bddf6dccdfcff4343a01819e18a8482",
+        "relation": "1d542f2605e2dc5945ab1de2e50a3c8fd94c0bdf61f5d1c7375a63ff81efc0f8",
+        "resource": "e4be1ce9612e7b78684069011b5a0f8973d4db98c52f25c7fc457bebcd5c28eb",
+    }
+    for domain, digest in expected.items():
+        rel = f"prompts/domains/{domain}.v2.yaml"
+        assert manifest[rel] == digest, f"{rel} 未登记或哈希不一致"
+        lens = load_domain_lens(AppConfig().prompts_dir, domain)
+        assert lens is not None
+        assert any("本期" in item for item in lens.look_at), f"{domain} v2 镜头没读本期内容"

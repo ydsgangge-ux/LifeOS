@@ -257,6 +257,18 @@ class MetricEngine:
             return self._distinct_days(
                 str(params["table"]), str(params["column"]), start, end, positive=True
             )
+        if formula == "nonempty_days":
+            return self._distinct_days(
+                str(params["table"]), str(params["column"]), start, end, nonempty=True
+            )
+        if formula == "below_threshold":
+            return self._distinct_days(
+                str(params["table"]),
+                str(params["column"]),
+                start,
+                end,
+                below=float(params["threshold"]),
+            )
         if formula == "nonessential_ratio":
             return self._txn_rows(start, end)
         if formula == "savings_rate":
@@ -275,6 +287,8 @@ class MetricEngine:
         end: date,
         *,
         positive: bool = False,
+        nonempty: bool = False,
+        below: float | None = None,
     ) -> list[dict[str, Any]]:
         where = ["e.deleted_at IS NULL", "e.status = 'final'",
                  "e.occurred_date >= ?", "e.occurred_date <= ?"]
@@ -283,6 +297,12 @@ class MetricEngine:
             where.append(f"t.{column} IS NOT NULL")
             if positive:
                 where.append(f"t.{column} > 0")
+            if nonempty:
+                # JSON 数组列：空字符串与空数组都算「没记录」
+                where.append(f"TRIM(t.{column}) NOT IN ('', '[]')")
+            if below is not None:
+                where.append(f"t.{column} < ?")
+                params.append(below)
         sql = (
             f"SELECT DISTINCT e.occurred_date AS d FROM {table} t"
             f" JOIN entry e ON e.id = t.entry_id WHERE {' AND '.join(where)}"
@@ -362,6 +382,9 @@ class MetricEngine:
             return covered / days, days, None
         if formula == "active_days":
             return float(len({r["date"] for r in rows})), days, None
+        if formula in ("nonempty_days", "below_threshold"):
+            # 天数口径：同一天记了多条也只算一天
+            return float(len({r["date"] for r in rows})), days, None
         if formula == "anomaly_count":
             return float(len(rows)), len(rows), None
         if formula == "nonessential_ratio":
@@ -399,7 +422,12 @@ class MetricEngine:
         for r in rows:
             by_date.setdefault(r["date"], []).append(r)
         for when, group in by_date.items():
-            if formula == "completeness" or formula == "active_days":
+            if formula in (
+                "completeness",
+                "active_days",
+                "nonempty_days",
+                "below_threshold",
+            ):
                 out[when] = 1.0
             elif formula == "anomaly_count":
                 out[when] = float(len(group))

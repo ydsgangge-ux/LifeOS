@@ -317,6 +317,8 @@ class LlmSettingsUpdate(BaseModel):
     base_url: str = ""
     timeout_seconds: int = Field(default=60, ge=5, le=300)
     max_retries: int = Field(default=2, ge=0, le=5)
+    # 输出 token 上限：不传就沿用当前值，避免只改供应商时把手调过的预算重置成默认
+    max_tokens: int | None = Field(default=None, ge=256, le=32000)
     api_key: str | None = None
     clear_api_key: bool = False
 
