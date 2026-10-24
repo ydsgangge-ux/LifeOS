@@ -34,6 +34,7 @@ from ..privacy import (
     read_policy,
 )
 from ..privacy.audit import payload_digest
+from ..util.ids import logical_today
 from .agents import (
     SOURCE_KINDS,
     AgentRun,
@@ -317,7 +318,8 @@ def adopt_experiment(
     window = experiment.get("window_days")
     end_date = None
     if isinstance(window, int) and window > 0:
-        end_date = (date.today() + timedelta(days=window)).isoformat()
+        # 逻辑日：凌晨生成的报告，接的下一周仍从刚过完的那天起算。
+        end_date = (logical_today() + timedelta(days=window)).isoformat()
     return service.longterm.create_plan(
         {
             "title": action,

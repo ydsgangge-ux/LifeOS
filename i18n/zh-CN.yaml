@@ -86,6 +86,7 @@ entry.draft: "草稿"
 entry.anomaly_tag: "意外 · {type} · {impact} 级"
 entry.delete: "删除"
 entry.load_more: "加载更多"
+entry.logical_day: "凌晨记录 · 计入 {day}"
 
 # -- 意外区块 ---------------------------------------------------------------
 anomaly.question: "这一天有意外？"

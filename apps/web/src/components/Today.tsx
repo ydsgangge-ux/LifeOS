@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '../lib/api'
+import { logicalDate, logicalToday } from '../lib/day'
 import { formatDate } from '../lib/format'
 import { formTitle } from '../lib/labels'
 import type { FormDef, Plan } from '../lib/types'
@@ -17,18 +18,10 @@ const PLAN_WINDOW_DAYS = 60
 const STALE_DAYS = 7
 const REVIEW_WINDOW_DAYS = 30
 
-function isoDate(offsetDays = 0): string {
-  const date = new Date()
-  date.setDate(date.getDate() - offsetDays)
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${date.getFullYear()}-${month}-${day}`
-}
-
 function daysSince(value: string): number {
   const then = new Date(`${value.slice(0, 10)}T00:00:00`)
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
+  // 与后端一致：凌晨 0–4 点仍算前一天，否则「多久没打卡」会多算一天。
+  const now = logicalToday()
   return Math.round((now.getTime() - then.getTime()) / 86_400_000)
 }
 
@@ -50,7 +43,7 @@ export function Today({ ageBand, onError, onNotice }: Props) {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  const today = isoDate()
+  const today = logicalDate()
 
   const activeForm = useMemo(
     () => forms.find((form) => form.id === activeFormId) ?? null,
@@ -64,7 +57,7 @@ export function Today({ ageBand, onError, onNotice }: Props) {
         api.listForms(ageBand ?? undefined),
         api.listPlans({ status: 'active' }),
         api.listEntries({ date_from: today, date_to: today, limit: 1 }),
-        api.listEntries({ domain: 'plan', date_from: isoDate(PLAN_WINDOW_DAYS), limit: 200 }),
+        api.listEntries({ domain: 'plan', date_from: logicalDate(PLAN_WINDOW_DAYS), limit: 200 }),
         api.listGoals('active'),
       ])
       setForms(formList.items)
@@ -88,7 +81,7 @@ export function Today({ ageBand, onError, onNotice }: Props) {
             if (!goal.target_date) return false
             const target = goal.target_date.slice(0, 10)
             // 到期日落在「今天 → 未来 30 天」之间的目标，提醒回看（第 8.6 节）。
-            return target >= today && target <= isoDate(-REVIEW_WINDOW_DAYS)
+            return target >= today && target <= logicalDate(-REVIEW_WINDOW_DAYS)
           })
           .map((goal) => goal.title),
       )

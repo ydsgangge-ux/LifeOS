@@ -87,6 +87,7 @@ entry.draft: "Borrador"
 entry.anomaly_tag: "Imprevisto · {type} · nivel {impact}"
 entry.delete: "Eliminar"
 entry.load_more: "Cargar más"
+entry.logical_day: "Madrugada · cuenta para {day}"
 
 # -- Bloque de imprevistos --------------------------------------------------
 anomaly.question: "¿Hubo algún imprevisto ese día?"

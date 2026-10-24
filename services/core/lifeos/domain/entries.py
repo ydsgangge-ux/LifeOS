@@ -11,7 +11,7 @@ import json
 from typing import Any
 
 from ..db.connection import VaultConnection
-from ..util.ids import new_ulid, now_utc_iso
+from ..util.ids import new_ulid, now_utc_iso, occurred_date_for
 from . import schema_defs as sd
 from .errors import InvalidInputError, NonEmptyRuleError, NotFoundError
 from .guardian import OWNER_VIEWER, Viewer
@@ -123,7 +123,8 @@ class EntryService:
                     entry_id,
                     domain,
                     occurred_at,
-                    str(occurred_at)[:10],
+                    # 逻辑日：凌晨 0–4 点的记录归前一天（见 util/ids.py 的截止说明）。
+                    occurred_date_for(occurred_at),
                     title,
                     note,
                     json.dumps(payload.get("tags") or [], ensure_ascii=False),

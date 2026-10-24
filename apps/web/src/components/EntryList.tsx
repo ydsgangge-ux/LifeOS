@@ -7,6 +7,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DAY_CUTOFF_HOUR } from '../lib/day'
 import { anomalyTypeLabel, domainLabel } from '../lib/labels'
 import type { Entry, EntryFilters } from '../lib/types'
 import { ReadAloud } from './ReadAloud'
@@ -47,6 +48,17 @@ interface Props {
 
 function when(entry: Entry): string {
   return entry.occurred_at.slice(0, 16).replace('T', ' ')
+}
+
+/** 凌晨记录（本地 0–4 点）按逻辑日归到前一天，行内仍显示真实时刻。
+ *
+ * 不标出来的话，分组头写 10-24、行内写 2026-10-25 01:30，看起来像对不上。
+ * 判据与后端 util/ids.py 的 LOGICAL_DAY_CUTOFF_HOUR 相同。
+ */
+function crossedMidnight(entry: Entry): boolean {
+  if (!entry.occurred_date) return false
+  if (entry.occurred_at.slice(0, 10) === entry.occurred_date) return false
+  return Number(entry.occurred_at.slice(11, 13)) < DAY_CUTOFF_HOUR
 }
 
 /** 详情字段压成一行摘要；空值不展示（第 4.1 节：字段全部可空）。 */
@@ -105,6 +117,9 @@ export function EntryList({
       </div>
       <div style={{ marginTop: 'var(--space-1)' }}>
         <span className="tag domain">{domainLabel(entry.domain)}</span>
+        {crossedMidnight(entry) && (
+          <span className="tag">{t('entry.logical_day', { day: entry.occurred_date })}</span>
+        )}
         {entry.status === 'draft' && <span className="tag">{t('entry.draft')}</span>}
         {entry.tags.map((tag) => (
           <span className="tag" key={tag}>

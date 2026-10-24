@@ -81,6 +81,7 @@ entry.draft: "下書き"
 entry.anomaly_tag: "アクシデント · {type} · 影響度 {impact}"
 entry.delete: "削除"
 entry.load_more: "もっと読み込む"
+entry.logical_day: "深夜の記録 · {day} に算入"
 
 # -- アクシデントのブロック ---------------------------------------------------
 anomaly.question: "その日、アクシデントはありましたか？"

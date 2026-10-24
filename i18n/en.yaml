@@ -83,6 +83,7 @@ entry.draft: "Draft"
 entry.anomaly_tag: "Anomaly · {type} · level {impact}"
 entry.delete: "Delete"
 entry.load_more: "Load more"
+entry.logical_day: "After midnight · counted toward {day}"
 
 # -- Anomaly block ----------------------------------------------------------
 anomaly.question: "Was there an anomaly that day?"

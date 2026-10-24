@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '../lib/api'
+import { logicalDate } from '../lib/day'
 import { metricStatusLabel } from '../lib/labels'
 import { resolveI18nRef } from '../i18n'
 import type { MetricLine } from '../lib/types'
@@ -17,14 +18,6 @@ type PeriodKind = 'weekly' | 'monthly'
 
 /** 趋势取最近 4 期：本地聚合查询，点数固定，不随数据量增长。 */
 const TREND_PERIODS = 4
-
-function isoOffset(days: number): string {
-  const date = new Date()
-  date.setDate(date.getDate() - days)
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${date.getFullYear()}-${month}-${day}`
-}
 
 function formatValue(value: number | null): string {
   if (value === null) return '—'
@@ -94,7 +87,7 @@ export function Dashboard({
         // 只取当前指标、4 期并行：避免串行等待，也避免为 1 个指标算全部 15 个。
         const offsets = Array.from({ length: TREND_PERIODS }, (_, i) => TREND_PERIODS - 1 - i)
         const results = await Promise.all(
-          offsets.map((i) => api.listMetrics(period, isoOffset(i * stepDays), [trendKey])),
+          offsets.map((i) => api.listMetrics(period, logicalDate(i * stepDays), [trendKey])),
         )
         const points: TrendPoint[] = []
         for (const result of results) {

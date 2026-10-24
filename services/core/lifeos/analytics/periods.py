@@ -9,13 +9,15 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from ..domain.errors import InvalidInputError
+from ..util.ids import logical_today
 
 PERIOD_KINDS = frozenset(("weekly", "monthly", "yearly", "custom"))
 
 
 def parse_date(value: str | date | None) -> date:
+    # 不传日期时用逻辑日：凌晨 0–4 点仍算前一天，此时生成的月报/年报不会跑到新周期。
     if value is None:
-        return date.today()
+        return logical_today()
     if isinstance(value, date):
         return value
     try:
