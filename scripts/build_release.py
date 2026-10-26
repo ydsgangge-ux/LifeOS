@@ -135,16 +135,16 @@ def _run(cmd: Sequence[str], cwd: Path | None = None, env: dict[str, str] | None
         cwd=str(cwd) if cwd else None,
         env=env,
         capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
     )
+    enc = sys.stdout.encoding or "utf-8"
+    out = (proc.stdout or b"").decode(enc, errors="replace")
+    err = (proc.stderr or b"").decode(enc, errors="replace")
     if proc.returncode != 0:
         raise BuildError(
             f"命令失败（退出码 {proc.returncode}）：{' '.join(cmd)}\n"
-            f"{(proc.stdout or '').strip()}\n{(proc.stderr or '').strip()}"
+            f"{out.strip()}\n{err.strip()}"
         )
-    return (proc.stdout or "").strip()
+    return out.strip()
 
 
 def _check_build_machine() -> None:
@@ -427,15 +427,12 @@ def _loopback() -> list[str] | None:
         proc = subprocess.run(
             [str(exe), "-c", _LOOPBACK_PROBE],
             capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=30,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
     except (OSError, subprocess.TimeoutExpired):
         return [f"本机回环探针没能跑起来（{exe}）"]
-    if "loopback ok" in (proc.stdout or ""):
+    if "loopback ok" in (proc.stdout or b"").decode("utf-8", errors="replace"):
         return None
     return [
         "本机回环不通：随包 python.exe 发起的 127.0.0.1 连接被静默丢弃，"
@@ -484,6 +481,11 @@ def _size_of(path: Path) -> tuple[int, int]:
 # 入口
 # --------------------------------------------------------------------------
 def main(argv: Sequence[str] | None = None) -> int:
+    # Windows 中文控制台（GBK）打不出 ✓/⚠/U+FFFD 等符号：把它们降级成替换符，
+    # 免得末尾打印把整轮 build 崩掉（其实包早就组好了）。CI 的 UTF-8 终端不受影响。
+    # 直接 reconfigure（不 try/except）：本脚本总在 __main__ 下跑，stdout/stderr 是 TextIOWrapper。
+    sys.stdout.reconfigure(errors="replace")
+    sys.stderr.reconfigure(errors="replace")
     parser = argparse.ArgumentParser(
         prog="build_release", description="组装 release/LifeOS（P6 W1.3）"
     )
@@ -529,9 +531,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("\n分发包就绪：", PACKAGE_DIR.relative_to(_ROOT))
         print(f"  {total_files} 个文件，{total_bytes / 1024 / 1024:.1f} MiB")
         for line in checks:
-            print(f"  ✓ {line}")
+            print(f"  [OK] {line}")
         if warnings:
-            print("\n  ⚠ 环境提示（不影响产物本身，但会让「双击」起不来）：")
+            print("\n  [!] 环境提示（不影响产物本身，但会让「双击」起不来）：")
             for line in warnings:
                 print(f"    - {line}")
         print(f"\n双击运行：{PACKAGE_DIR / ENTRY}")
