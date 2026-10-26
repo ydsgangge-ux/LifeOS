@@ -811,7 +811,7 @@ def test_pipeline_generates_ok_report(fast_vault: FastVault, monkeypatch) -> Non
     assert report["model"] == MODEL
     assert report["template_hash"] and report["snapshot_hash"]
     # 溯源：提示词版本与指标注册表版本/指纹一并落库（NFR-06）
-    assert report["template_version"] == 12  # 周报用自己的提示词 weekly.v12
+    assert report["template_version"] == 13  # 周报用自己的提示词 weekly.v13
     assert report["metrics_version"]
     assert len(report["metrics_hash"]) == 64
 
@@ -962,7 +962,7 @@ def test_pipeline_loads_period_prompt_by_kind(fast_vault: FastVault, monkeypatch
         transport=_routed_transport(domain=DOMAIN_OUTPUT, integration=INTEGRATION_OUTPUT),
     )
     assert weekly["status"] == "ok"
-    assert weekly["template_version"] == 12
+    assert weekly["template_version"] == 13
 
     monthly = generate_report(
         analytics,
@@ -1209,8 +1209,8 @@ def test_load_prompt_reads_front_matter_and_hash() -> None:
     template = load_prompt("weekly", AppConfig().prompts_dir)
     assert template.template_id == "weekly"
     assert template.purpose == "weekly_report"
-    assert template.version == 12  # 取版本号最大的文件（v12 收敛成三块）
+    assert template.version == 13  # 取版本号最大的文件（v13 重写，仍为三块）
     assert len(template.hash) == 64
-    assert "你是这份个人报告的顾问" in template.system
+    assert "你是这份个人生活报告的顾问" in template.system
     assert "{{ language }}" in template.system
     assert "{{ facts_yaml }}" in template.user

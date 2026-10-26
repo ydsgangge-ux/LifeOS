@@ -85,9 +85,12 @@ def test_rendered_prompts_carry_target_language():
 
 
 def test_latest_versions():
-    """v12 起周报/月报/年报都收敛成三块；领域小结 v8 只留总结 + 评价。"""
+    """v12 起周报/月报/年报都收敛成三块；领域小结 v8 只留总结 + 评价。
+
+    周报最新是 v13（重写：证据优先级、条数不设下限、数字规则二分、人口属性个性化）。
+    """
     prompts_dir = AppConfig().prompts_dir
-    assert load_prompt("weekly", prompts_dir).version == 12
+    assert load_prompt("weekly", prompts_dir).version == 13
     assert load_prompt("monthly", prompts_dir).version == 12
     assert load_prompt("yearly", prompts_dir).version == 6
     assert load_prompt("domain", prompts_dir).version == 8
@@ -251,6 +254,17 @@ def test_v12_prompts_registered_with_hash():
     }
     for rel, digest in expected.items():
         assert manifest[rel] == digest, f"{rel} 未登记或哈希不一致"
+
+
+def test_v13_weekly_registered_with_hash():
+    """v13 重写周报（证据优先级、条数不设下限、数字规则二分、人口属性个性化）。
+
+    新建版本同样必须登记 sha256（ADR-07）。
+    """
+    manifest = load_manifest(AppConfig().schemas_dir)
+    assert manifest["prompts/weekly.v13.md"] == (
+        "7d13965c5b0bc305f9a77d6328a9216aeaf09cdca555598bbe70ab3e7511b57c"
+    )
 
 
 def test_v1_hashes_untouched():

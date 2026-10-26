@@ -39,8 +39,13 @@ allow:
       - status
       - why_note
       - plan_count
-    # 基础信息只出结构化枚举与数量，不出职位名（接近自由文本，可能指向身份）
+    # 基础信息：结构化枚举、数值与数量（含 0013 人口属性：性别/年龄/身高体重），
+    # 不出职位名（接近自由文本，可能指向身份）。人口属性让建议能落在真实身体与人生阶段。
     basics:
+      - gender
+      - age
+      - height_cm
+      - weight_kg
       - industry
       - education_level
       - work_style

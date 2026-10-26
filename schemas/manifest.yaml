@@ -122,3 +122,8 @@ released:
   prompts/monthly.v12.md: "21a4c1c4fec1ad78e4a717ebf5da037e8240199ff3abff33f4d0fba78256700b"
   prompts/yearly.v6.md: "fc8c52cef8cf29763f79a56984b22fece05838f67d23e61abe268901cffa632c"
   prompts/domain.v8.md: "0f079a5778f5b2931a724a4b5c01145287de2cfd7916ffba20ed20c3ddb271fa"
+  # v13：周报提示词重写（吸收评审）——证据优先级单列一节、条数改成「目标不设下限」、
+  # 数字规则二分（事实数值用占位符 / 实验参数直接写数字）、跨领域判断需跨领域证据、
+  # evidence_refs 逐条核对真实路径、规则全收进 system 只留数据在 user；
+  # 并用人口属性（性别/年龄/身高体重/行业/教育，走 basics）让建议贴合人生阶段与身体状况。
+  prompts/weekly.v13.md: "7d13965c5b0bc305f9a77d6328a9216aeaf09cdca555598bbe70ab3e7511b57c"

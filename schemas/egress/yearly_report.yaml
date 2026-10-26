@@ -36,8 +36,12 @@ allow:
       - status
       - why_note
       - plan_count
-    # 基础信息只出结构化枚举与数量，不出职位名
+    # 基础信息只出结构化枚举、数值与数量（含 0013 人口属性），不出职位名
     basics:
+      - gender
+      - age
+      - height_cm
+      - weight_kg
       - industry
       - education_level
       - work_style

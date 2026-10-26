@@ -82,9 +82,14 @@ _MAX_GAPS = 8
 # 既覆盖头尾，也不让单个领域把上下文撑爆（备注已在事实层截断到 500 字）。
 _MAX_ENTRY_TEXTS_PER_DOMAIN = 80
 
-# 基础信息里可以出站的字段：只留结构化枚举与数量。
+# 基础信息里可以出站的字段：只留结构化枚举、数值与数量。
 # 职位名接近自由文本，可能直接指向身份，因此始终留在本地。
+# 0013 起含人口属性（性别、年龄、身高体重）：让报告能把建议落在真实身体与人生阶段。
 _BASICS_FIELDS = (
+    "gender",
+    "age",
+    "height_cm",
+    "weight_kg",
     "industry",
     "education_level",
     "work_style",

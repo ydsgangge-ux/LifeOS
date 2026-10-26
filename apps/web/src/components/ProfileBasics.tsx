@@ -16,6 +16,7 @@ interface Props {
 }
 
 const SELECT_FIELDS = [
+  'gender',
   'industry',
   'education_level',
   'work_style',
@@ -132,6 +133,54 @@ export function ProfileBasics({ onError, onNotice }: Props) {
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="field-block">
+          <label htmlFor="basics-age">{t('basics.age')}</label>
+          <input
+            id="basics-age"
+            value={form.age != null ? t('basics.age_value', { age: form.age }) : ''}
+            disabled
+            readOnly
+          />
+        </div>
+
+        <div className="field-block">
+          <label htmlFor="basics-height">{t('basics.height_cm')}</label>
+          <input
+            id="basics-height"
+            type="number"
+            min={30}
+            max={260}
+            step={0.5}
+            value={form.height_cm ?? ''}
+            disabled={saving}
+            onChange={(event) =>
+              setForm({
+                ...form,
+                height_cm: event.target.value === '' ? null : Number(event.target.value),
+              })
+            }
+          />
+        </div>
+
+        <div className="field-block">
+          <label htmlFor="basics-weight">{t('basics.weight_kg')}</label>
+          <input
+            id="basics-weight"
+            type="number"
+            min={2}
+            max={300}
+            step={0.1}
+            value={form.weight_kg ?? ''}
+            disabled={saving}
+            onChange={(event) =>
+              setForm({
+                ...form,
+                weight_kg: event.target.value === '' ? null : Number(event.target.value),
+              })
+            }
+          />
         </div>
       </div>
 

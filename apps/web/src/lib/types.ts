@@ -92,6 +92,11 @@ export interface GuardianPolicy {
 /** 个人基础信息（决策评估与自我认知的前提条件）。 */
 export interface ProfileBasics {
   job_title: string | null
+  gender: string | null
+  /** 年龄由出生年份推算，只读（改年龄走档案信息）。 */
+  age: number | null
+  height_cm: number | null
+  weight_kg: number | null
   industry: string | null
   education_level: string | null
   work_style: string | null
@@ -103,6 +108,7 @@ export interface ProfileBasics {
 }
 
 export interface BasicsOptions {
+  gender: string[]
   industry: string[]
   education_level: string[]
   work_style: string[]

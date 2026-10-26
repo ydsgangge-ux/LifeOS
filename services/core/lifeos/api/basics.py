@@ -17,6 +17,7 @@ from .deps import require_service
 router = APIRouter(tags=["basics"])
 
 OPTIONS: dict[str, list[str]] = {
+    "gender": list(basics_mod.GENDERS),
     "industry": list(basics_mod.INDUSTRIES),
     "education_level": list(basics_mod.EDUCATION_LEVELS),
     "work_style": list(basics_mod.WORK_STYLES),
