@@ -68,6 +68,11 @@ export function decisionLabel(decision: string): string {
   return pick('goals.decision', decision)
 }
 
+/** 计划打卡的执行结果（done / partial / skipped / blocked）。 */
+export function outcomeLabel(outcome: string | null | undefined): string {
+  return pick('goals.outcome', outcome)
+}
+
 /** 报告结论的证据强度徽标（第 9.7 节）。 */
 export function strengthLabel(strength: string): string {
   return pick('reports.strength', strength)

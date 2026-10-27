@@ -369,6 +369,43 @@ def test_goal_checkpoint(client):
     assert entry["detail"]["goal_id"] == goal["id"]
     assert entry["detail"]["decision"] == "keep"
 
+    # 关联必须双向可用：关系边指向目标，且能按目标反查到这条回看
+    assert any(
+        link["dst_type"] == "goal"
+        and link["dst_id"] == goal["id"]
+        and link["relation"] == "supports_goal"
+        for link in entry["links"]
+    )
+    history = client.get(f"{API_PREFIX}/goals/{goal['id']}/checkpoints")
+    assert history.status_code == 200, history.text
+    assert [item["id"] for item in history.json()["items"]] == [entry["id"]]
+
+
+def test_goal_review_via_form_links_to_goal(client):
+    """走表单（录入页）录的回看也要挂到目标上，而不是只写在详情里。"""
+    unlocked_client(client)
+    goal = client.post(f"{API_PREFIX}/goals", json={"title": "练好吉他"}).json()
+    response = client.post(
+        f"{API_PREFIX}/entries",
+        json={
+            "form_id": "goal.review",
+            "values": {
+                "goal": goal["id"],
+                "metric_value": 2,
+                "decision": "revise",
+                "progress_note": "换了练习曲",
+            },
+        },
+    )
+    assert response.status_code == 201, response.text
+    entry = response.json()
+    assert entry["detail"]["goal_id"] == goal["id"]
+    assert any(
+        link["dst_type"] == "goal" and link["dst_id"] == goal["id"] for link in entry["links"]
+    )
+    history = client.get(f"{API_PREFIX}/goals/{goal['id']}/checkpoints")
+    assert [item["id"] for item in history.json()["items"]] == [entry["id"]]
+
 
 def test_plan_record_and_skill(client):
     unlocked_client(client)
@@ -379,6 +416,17 @@ def test_plan_record_and_skill(client):
     )
     assert recorded.status_code == 201, recorded.text
     assert recorded.json()["detail"]["plan_id"] == plan["id"]
+
+    # 打卡同样要挂到计划上：关系边 + 按计划反查
+    assert any(
+        link["dst_type"] == "plan"
+        and link["dst_id"] == plan["id"]
+        and link["relation"] == "part_of"
+        for link in recorded.json()["links"]
+    )
+    history = client.get(f"{API_PREFIX}/plans/{plan['id']}/records")
+    assert history.status_code == 200, history.text
+    assert [item["id"] for item in history.json()["items"]] == [recorded.json()["id"]]
 
     skill = client.post(f"{API_PREFIX}/skills", json={"name": "吉他", "area": "hobby"}).json()
     level = client.post(

@@ -91,6 +91,15 @@ def delete_goal(goal_id: str, service: DomainService = Depends(require_service))
     service.longterm.delete_goal(goal_id)
 
 
+@router.get("/goals/{goal_id}/checkpoints")
+def list_goal_checkpoints(
+    goal_id: str,
+    limit: int = 20,
+    service: DomainService = Depends(require_service),
+) -> dict:
+    return {"items": service.list_goal_checkpoints(goal_id, limit=limit)}
+
+
 @router.post("/goals/{goal_id}/checkpoints", status_code=201)
 def add_goal_checkpoint(
     goal_id: str, body: CheckpointCreate, service: DomainService = Depends(require_service)
@@ -130,6 +139,15 @@ def update_plan(
 @router.delete("/plans/{plan_id}", status_code=204)
 def delete_plan(plan_id: str, service: DomainService = Depends(require_service)) -> None:
     service.longterm.delete_plan(plan_id)
+
+
+@router.get("/plans/{plan_id}/records")
+def list_plan_records(
+    plan_id: str,
+    limit: int = 20,
+    service: DomainService = Depends(require_service),
+) -> dict:
+    return {"items": service.list_plan_records(plan_id, limit=limit)}
 
 
 @router.post("/plans/{plan_id}/records", status_code=201)

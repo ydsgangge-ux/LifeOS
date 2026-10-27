@@ -19,6 +19,14 @@ from .guardian import OWNER_VIEWER, Viewer
 JSON_DETAIL_COLUMNS = frozenset({"symptoms_json", "measures_json", "themes_json"})
 BOOL_DETAIL_COLUMNS = frozenset({"essential", "recurring", "budgeted", "opportunity", "one_off"})
 
+# 详情里带外部对象引用（NOT NULL 外键）的领域：录入时同步建立 entry→对象 的关系边。
+# 这些引用是确定事实（不是推断），所以直接以 confirmed=1 落库，供图谱与
+# 「按目标/计划反查记录」使用（第 4.3 节 entry_link）。
+DETAIL_OBJECT_LINKS: dict[str, tuple[str, str, str]] = {
+    "goal": ("goal_id", "goal", "supports_goal"),
+    "plan": ("plan_id", "plan", "part_of"),
+}
+
 
 def _json_cols(values: dict[str, Any]) -> dict[str, Any]:
     out = dict(values)
@@ -142,6 +150,7 @@ class EntryService:
                 self.add_anomaly(anomaly, entry_id, tx=tx)
             for link in payload.get("links") or []:
                 self._insert_link(tx, "entry", entry_id, link)
+            self._link_detail_object(tx, entry_id, domain, detail)
 
         result = self._read(entry_id)
         if idempotency_key:
@@ -317,6 +326,8 @@ class EntryService:
             )
             if detail_patch:
                 self._write_detail(tx, target_domain, entry_id, detail_patch, upsert=True)
+                # 目标/计划被改到别处时，至少给新对象补上关系边（旧边留给用户显式删除）
+                self._link_detail_object(tx, entry_id, target_domain, detail_patch)
             updated = self._read(entry_id)
             diff = _diff(diff_before, self._snapshot_for_diff(updated))
             if diff:
@@ -476,9 +487,82 @@ class EntryService:
         )
         return link_id
 
+    def _link_detail_object(
+        self,
+        tx: VaultConnection,
+        entry_id: str,
+        domain: str,
+        detail: dict[str, Any],
+    ) -> None:
+        """把详情里的目标/计划引用补成关系边；已有同元组则跳过（UNIQUE 约束）。"""
+        spec = DETAIL_OBJECT_LINKS.get(domain)
+        if spec is None:
+            return
+        ref_column, dst_type, relation = spec
+        dst_id = detail.get(ref_column)
+        if not dst_id:
+            return
+        existing = tx.query_one(
+            "SELECT 1 FROM entry_link WHERE src_type = 'entry' AND src_id = ?"
+            " AND dst_type = ? AND dst_id = ? AND relation = ?",
+            (entry_id, dst_type, dst_id, relation),
+        )
+        if existing is not None:
+            return
+        self._insert_link(
+            tx,
+            "entry",
+            entry_id,
+            {
+                "dst_type": dst_type,
+                "dst_id": dst_id,
+                "relation": relation,
+                "created_by": "rule",
+                "confirmed": True,
+            },
+        )
+
     def create_link(self, src_type: str, src_id: str, link: dict[str, Any]) -> dict[str, Any]:
         if src_type not in sd.LINK_OBJECT_TYPES:
             raise InvalidInputError(f"未知源类型：{src_type}")
+        created_by = link.get("created_by", "user")
+        if created_by not in sd.LINK_CREATED_BY:
+            raise InvalidInputError(f"未知创建者：{created_by}")
+        dst_type = link.get("dst_type")
+        dst_id = link.get("dst_id")
+        relation = link.get("relation")
+        if dst_type in sd.LINK_OBJECT_TYPES and relation in sd.LINK_RELATIONS and dst_id:
+            # UNIQUE 覆盖全部行（含已软删），同元组不能重复插入：
+            # 仍在的直接返回（点两次不会 500），被驳回过的恢复而不是新建。
+            existing = self._conn.query_one(
+                "SELECT * FROM entry_link WHERE src_type = ? AND src_id = ?"
+                " AND dst_type = ? AND dst_id = ? AND relation = ?",
+                (src_type, src_id, dst_type, dst_id, relation),
+            )
+            if existing is not None:
+                if existing["deleted_at"] is None:
+                    return self._row_link(existing)
+                confirmed = link.get("confirmed")
+                if confirmed is None:
+                    confirmed = created_by == "user"
+                evidence = link.get("evidence")
+                with self._conn.transaction() as tx:
+                    tx.execute(
+                        "UPDATE entry_link SET deleted_at = NULL, created_by = ?, confirmed = ?,"
+                        " strength = ?, evidence_json = ? WHERE id = ?",
+                        (
+                            created_by,
+                            1 if confirmed else 0,
+                            link.get("strength"),
+                            None if evidence is None else json.dumps(evidence, ensure_ascii=False),
+                            existing["id"],
+                        ),
+                    )
+                return self._row_link(
+                    self._conn.query_one(
+                        "SELECT * FROM entry_link WHERE id = ?", (existing["id"],)
+                    )
+                )
         with self._conn.transaction() as tx:
             link_id = self._insert_link(tx, src_type, src_id, link)
         return self._row_link(

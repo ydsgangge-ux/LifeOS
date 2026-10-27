@@ -224,6 +224,7 @@ class CheckpointCreate(BaseModel):
     decision: Literal["keep", "revise", "pause", "drop", "achieve"] | None = None
     progress_note: str | None = None
     title: str | None = None
+    note: str | None = None
     sensitivity: int | None = None
 
 

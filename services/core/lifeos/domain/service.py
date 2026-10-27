@@ -48,8 +48,11 @@ class DomainService:
             {
                 "domain": "goal",
                 "title": data.get("title") or "目标回看",
+                "note": data.get("note"),
                 "status": "final",
                 "sensitivity": data.get("sensitivity"),
+                # detail.goal_id 是 NOT NULL 外键；关系边由 EntryService 按详情自动补，
+                # 因此走专用端点与走 goal.review 表单的录入都会挂上同一个目标（第 4.3 节）。
                 "detail": {
                     "goal_id": goal_id,
                     "metric_value": data.get("metric_value"),
@@ -68,7 +71,10 @@ class DomainService:
             {
                 "domain": "plan",
                 "title": data.get("title") or "计划执行",
+                "note": data.get("note"),
                 "status": data.get("status", "final"),
+                # detail.plan_id 是 NOT NULL 外键；关系边由 EntryService 按详情自动补，
+                # 因此走专用端点与走 plan.checkin 表单的打卡都会挂上同一个计划（第 4.3 节）。
                 "detail": {
                     "plan_id": plan_id,
                     "planned_units": data.get("planned_units"),
@@ -79,3 +85,34 @@ class DomainService:
                 },
             }
         )
+
+    # -- 按长期对象反查记录（打卡/回看历史）----------------------------------
+    def list_goal_checkpoints(self, goal_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        """某个目标下的回看记录，按时间倒序（含 detail.goal_id）。"""
+        self.longterm.get_goal(goal_id)
+        return self._entries_of(
+            "goal_checkpoint", "goal_id", goal_id, limit
+        )
+
+    def list_plan_records(self, plan_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        """某个计划下的打卡记录，按时间倒序（含 detail.plan_id）。"""
+        self.longterm.get_plan(plan_id)
+        return self._entries_of("plan_record", "plan_id", plan_id, limit)
+
+    def _entries_of(
+        self, table: str, ref_column: str, ref_id: str, limit: int
+    ) -> list[dict[str, Any]]:
+        rows = self.conn.query(
+            f"SELECT d.entry_id FROM {table} d JOIN entry e ON e.id = d.entry_id"
+            f" WHERE d.{ref_column} = ? AND e.deleted_at IS NULL"
+            " ORDER BY e.occurred_at DESC, e.id DESC LIMIT ?",
+            (ref_id, max(1, min(limit, 100))),
+        )
+        items: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                items.append(self.entries.get(row["entry_id"]))
+            except NotFoundError:
+                # guardian 会话下不可见的条目按不存在处理（第 7.7 节、验收 A2）
+                continue
+        return items

@@ -191,6 +191,48 @@ def test_soft_delete_person_cascades_links(fast_vault) -> None:
     assert links[0]["deleted_at"] is not None
 
 
+def test_create_same_link_twice_is_idempotent(fast_vault) -> None:
+    svc = fast_vault.service
+    person = svc.longterm.create_person({"display_name": "张三"})
+    entry = svc.entries.create(_expense())
+    payload = {"dst_type": "person", "dst_id": person["id"], "relation": "involves_person"}
+
+    first = svc.entries.create_link("entry", entry["id"], payload)
+    second = svc.entries.create_link("entry", entry["id"], payload)
+
+    assert second["id"] == first["id"]
+    links = svc.entries.list_links(src_id=entry["id"], dst_type="person")
+    assert [link["id"] for link in links] == [first["id"]]
+
+
+def test_create_link_restores_rejected_link(fast_vault) -> None:
+    svc = fast_vault.service
+    person = svc.longterm.create_person({"display_name": "赵六"})
+    entry = svc.entries.create(_expense())
+    payload = {"dst_type": "person", "dst_id": person["id"], "relation": "involves_person"}
+    original = svc.entries.create_link("entry", entry["id"], dict(payload, created_by="rule"))
+    assert original["confirmed"] is False  # 规则建议需用户确认
+
+    svc.graph.reject_link(original["id"])
+    assert svc.entries.list_links(dst_type="person", dst_id=person["id"]) == []
+
+    restored = svc.entries.create_link(
+        "entry",
+        entry["id"],
+        dict(payload, strength=0.9, evidence={"why": "同日同地点"}),
+    )
+    assert restored["id"] == original["id"]
+    assert restored["deleted_at"] is None
+    assert restored["created_by"] == "user"
+    assert restored["confirmed"] is True
+    assert restored["strength"] == pytest.approx(0.9)
+    assert restored["evidence"] == {"why": "同日同地点"}
+    kept = svc.entries.list_links(
+        dst_type="person", dst_id=person["id"], include_deleted=True
+    )
+    assert len(kept) == 1
+
+
 def test_hard_delete_entry_removes_links(fast_vault) -> None:
     svc = fast_vault.service
     person = svc.longterm.create_person({"display_name": "王五"})

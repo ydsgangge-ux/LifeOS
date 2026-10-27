@@ -74,6 +74,14 @@ export function Today({ ageBand, onError, onNotice }: Props) {
         }
       }
       setLastCheckIn(latest)
+      // 今天已经打过卡的计划直接显示「已打卡」，刷新后也不会又冒出打卡按钮
+      setChecked(
+        Object.fromEntries(
+          Object.entries(latest)
+            .filter(([, date]) => date === today)
+            .map(([planId]) => [planId, true]),
+        ),
+      )
 
       setGoalDue(
         goalList.items

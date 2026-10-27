@@ -262,6 +262,10 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  /** 某个目标下已录入的回看（按时间倒序），用于卡片上的历史与「挂没挂上」校验。 */
+  listGoalCheckpoints: (goalId: string, limit = 20) =>
+    request<EntryPage>(`/goals/${goalId}/checkpoints?limit=${limit}`),
+
   listPlans: (filters: { status?: string; goal_id?: string } = {}) => {
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(filters)) {
@@ -285,6 +289,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  /** 某个计划下已录入的打卡（按时间倒序）。 */
+  listPlanRecords: (planId: string, limit = 20) =>
+    request<EntryPage>(`/plans/${planId}/records?limit=${limit}`),
 
   // -- 爱好与技能（第 5 章 hobby / education / career 表单的选择器）------------
   listHobbies: () => request<HobbyList>('/hobbies'),

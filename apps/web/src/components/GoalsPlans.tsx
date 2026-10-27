@@ -9,22 +9,27 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '../lib/api'
+import { formatDate, formatNumber } from '../lib/format'
 import {
   cadenceLabel,
   decisionLabel,
   directionLabel,
   goalStatusLabel,
   horizonLabel,
+  outcomeLabel,
   planStatusLabel,
   renderMessage,
   verdictLabel,
 } from '../lib/labels'
-import type { Goal, PlanDiagnosis, Plan } from '../lib/types'
+import { invalidateRefCache } from '../lib/refs'
+import type { Entry, Goal, PlanDiagnosis, Plan } from '../lib/types'
 
 const HORIZONS = ['1y', '3y', '5y', 'life']
 const DIRECTIONS = ['increase', 'decrease', 'maintain']
 const CADENCES = ['daily', 'weekly', 'monthly', 'once']
 const DECISIONS = ['', 'keep', 'revise', 'pause', 'drop', 'achieve']
+/** 卡片上直接展示的最近回看/打卡条数；更多历史到记录页看。 */
+const RECENT_LIMIT = 3
 
 interface Props {
   onError: (problem: unknown, fallback: string) => void
@@ -36,6 +41,9 @@ export function GoalsPlans({ onError, onNotice }: Props) {
   const [goals, setGoals] = useState<Goal[]>([])
   const [plans, setPlans] = useState<Plan[]>([])
   const [diagnoses, setDiagnoses] = useState<Record<string, PlanDiagnosis | null>>({})
+  // 每个目标/计划下已录入的回看与打卡（按目标/计划反查，验证关联是否挂上）
+  const [checkpoints, setCheckpoints] = useState<Record<string, Entry[]>>({})
+  const [records, setRecords] = useState<Record<string, Entry[]>>({})
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [showGoalForm, setShowGoalForm] = useState(false)
@@ -69,16 +77,38 @@ export function GoalsPlans({ onError, onNotice }: Props) {
       const [goalList, planList] = await Promise.all([api.listGoals(), api.listPlans()])
       setGoals(goalList.items)
       setPlans(planList.items)
-      const entries = await Promise.all(
-        planList.items.map(async (plan) => {
-          try {
-            return [plan.id, await api.planDiagnosis(plan.id)] as const
-          } catch {
-            return [plan.id, null] as const
-          }
-        }),
-      )
+      const [entries, goalHistory, planHistory] = await Promise.all([
+        Promise.all(
+          planList.items.map(async (plan) => {
+            try {
+              return [plan.id, await api.planDiagnosis(plan.id)] as const
+            } catch {
+              return [plan.id, null] as const
+            }
+          }),
+        ),
+        Promise.all(
+          goalList.items.map(async (goal) => {
+            try {
+              return [goal.id, (await api.listGoalCheckpoints(goal.id, RECENT_LIMIT)).items] as const
+            } catch {
+              return [goal.id, [] as Entry[]] as const
+            }
+          }),
+        ),
+        Promise.all(
+          planList.items.map(async (plan) => {
+            try {
+              return [plan.id, (await api.listPlanRecords(plan.id, RECENT_LIMIT)).items] as const
+            } catch {
+              return [plan.id, [] as Entry[]] as const
+            }
+          }),
+        ),
+      ])
       setDiagnoses(Object.fromEntries(entries))
+      setCheckpoints(Object.fromEntries(goalHistory))
+      setRecords(Object.fromEntries(planHistory))
     } catch (problem) {
       onError(problem, t('error.load_forms'))
     } finally {
@@ -104,6 +134,8 @@ export function GoalsPlans({ onError, onNotice }: Props) {
       })
       setGoalDraft({ title: '', horizon: '1y', direction: 'increase', target: '', target_date: '', why_note: '' })
       setShowGoalForm(false)
+      // 新建目标后让「录入」页的长期对象选择器重新拉取，避免选不到新目标
+      invalidateRefCache('goal')
       await load()
     } catch (problem) {
       onError(problem, t('error.save'))
@@ -125,6 +157,7 @@ export function GoalsPlans({ onError, onNotice }: Props) {
       })
       setPlanDraft({ title: '', goal_id: '', cadence: 'weekly', expected_output: '' })
       setShowPlanForm(false)
+      invalidateRefCache('plan')
       await load()
     } catch (problem) {
       onError(problem, t('error.save'))
@@ -255,6 +288,27 @@ export function GoalsPlans({ onError, onNotice }: Props) {
               {goal.target_date && <span className="tag">{goal.target_date}</span>}
             </div>
             {goal.why_note && <div className="detail">{goal.why_note}</div>}
+
+            <div className="detail">
+              {(checkpoints[goal.id] ?? []).length === 0 ? (
+                <span className="muted">{t('goals.checkpoint_empty')}</span>
+              ) : (
+                (checkpoints[goal.id] ?? []).map((entry) => (
+                  <div key={entry.id}>
+                    {formatDate(entry.occurred_date)}
+                    {typeof entry.detail.decision === 'string' && entry.detail.decision
+                      ? ` · ${decisionLabel(entry.detail.decision)}`
+                      : ''}
+                    {entry.detail.metric_value !== null && entry.detail.metric_value !== undefined
+                      ? ` · ${formatNumber(Number(entry.detail.metric_value))}`
+                      : ''}
+                    {typeof entry.detail.progress_note === 'string' && entry.detail.progress_note
+                      ? ` · ${entry.detail.progress_note}`
+                      : ''}
+                  </div>
+                ))
+              )}
+            </div>
 
             {checkpointFor === goal.id ? (
               <div className="field-block">
@@ -414,6 +468,27 @@ export function GoalsPlans({ onError, onNotice }: Props) {
                 )}
               </div>
               {plan.expected_output && <div className="detail">{plan.expected_output}</div>}
+              <div className="detail">
+                {(records[plan.id] ?? []).length === 0 ? (
+                  <span className="muted">{t('goals.records_empty')}</span>
+                ) : (
+                  (records[plan.id] ?? []).map((entry) => (
+                    <div key={entry.id}>
+                      {formatDate(entry.occurred_date)}
+                      {typeof entry.detail.outcome === 'string' && entry.detail.outcome
+                        ? ` · ${outcomeLabel(entry.detail.outcome)}`
+                        : ''}
+                      {entry.detail.actual_units !== null && entry.detail.actual_units !== undefined
+                        ? ` · ${formatNumber(Number(entry.detail.actual_units))}${
+                            typeof entry.detail.unit === 'string' && entry.detail.unit
+                              ? entry.detail.unit
+                              : ''
+                          }`
+                        : ''}
+                    </div>
+                  ))
+                )}
+              </div>
               {diagnosis && diagnosis.reasons.length > 0 && (
                 <div className="detail">
                   {diagnosis.reasons.map((reason, index) => (
