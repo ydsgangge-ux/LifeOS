@@ -5,8 +5,8 @@
 [![CI](https://github.com/ydsgangge-ux/LifeOS/actions/workflows/ci.yml/badge.svg)](https://github.com/ydsgangge-ux/LifeOS/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> 你和 AI 之间的差距，从来不是模型聪不聪明，
-> 而是它对你一无所知。
+> 同一个 AI，给每个人的回答却天差地别。
+> 差别不在模型多聪明，而在它对你了解多少。
 
 ---
 

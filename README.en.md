@@ -5,8 +5,8 @@
 [![CI](https://github.com/ydsgangge-ux/LifeOS/actions/workflows/ci.yml/badge.svg)](https://github.com/ydsgangge-ux/LifeOS/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> The gap between you and AI was never how smart the model is.
-> It's how little it knows about you.
+> The same AI gives a different answer to each of us.
+> The difference isn't how smart the model is — it's how much it knows about you.
 
 ---
 
