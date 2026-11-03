@@ -45,6 +45,8 @@ def save_report(
     template_version: int | None = None,
     metrics_version: str = "",
     metrics_hash: str = "",
+    domain_template_version: int | None = None,
+    domain_template_hash: str = "",
     snapshot_hash: str = "",
     egress_log_id: str | None = None,
 ) -> str:
@@ -55,8 +57,8 @@ def save_report(
             " (id, kind, period_start, period_end, status, facts_json, summary_md,"
             "  model, template_id, template_hash, template_version,"
             "  metrics_version, metrics_hash, snapshot_hash, egress_log_id,"
-            "  output_json, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "  output_json, created_at, domain_template_version, domain_template_hash)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 report_id,
                 kind,
@@ -75,6 +77,8 @@ def save_report(
                 egress_log_id,
                 json.dumps(output, ensure_ascii=False, sort_keys=True),
                 now_utc_iso(),
+                domain_template_version,
+                domain_template_hash,
             ),
         )
     return report_id
@@ -132,6 +136,27 @@ def reports_in_period(
         item["output"] = _decode(item.pop("output_json", None))
         latest[str(item.get("period_start") or "")] = item
     return list(latest.values())
+
+
+def latest_ok_report(
+    conn: VaultConnection, *, kind: str, period_start: str, period_end: str
+) -> dict[str, Any] | None:
+    """同一周期最近一份成功报告；供周报复用领域小结时比对快照与提示词版本。
+
+    只取复用需要的列：事实包体积大，这里用不上。
+    """
+    row = conn.query_one(
+        "SELECT id, kind, period_start, period_end, status, snapshot_hash,"
+        " domain_template_version, domain_template_hash, output_json"
+        " FROM report WHERE kind = ? AND period_start = ? AND period_end = ?"
+        " AND status = 'ok' ORDER BY created_at DESC, id DESC LIMIT 1",
+        (kind, str(period_start)[:10], str(period_end)[:10]),
+    )
+    if row is None:
+        return None
+    report = dict(row)
+    report["output"] = _decode(report.pop("output_json", None))
+    return report
 
 
 def report_exists(conn: VaultConnection, kind: str, period_end: str) -> bool:

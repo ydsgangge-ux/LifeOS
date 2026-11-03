@@ -846,11 +846,38 @@ def test_pipeline_generates_ok_report(fast_vault: FastVault, monkeypatch) -> Non
     assert usage["prompt_tokens"] == 1600
     assert usage["completion_tokens"] == 800
     assert usage["cost_est"] > 0
-    assert usage["degraded_domains"] == []
 
     # 两次出站都回填为 sent
     rows = [dict(row) for row in fast_vault.conn.query("SELECT * FROM egress_log")]
     assert len(rows) == 2 and all(row["status"] == "sent" for row in rows)
+
+    # 同一天重跑：数据快照没变、领域提示词也没换版本 → 复用领域小结，只跑一次整合
+    seen: list[str] = []
+
+    def counting(request: httpx.Request) -> httpx.Response:
+        raw = request.content.decode("utf-8")
+        kind_of_call = "domain" if "【领域解读任务】" in raw else "integration"
+        seen.append(kind_of_call)
+        body = DOMAIN_OUTPUT if kind_of_call == "domain" else INTEGRATION_OUTPUT
+        return httpx.Response(200, json=_chat_body(body))
+
+    again = generate_report(
+        analytics,
+        kind="weekly",
+        end="2026-10-18",
+        transport=httpx.MockTransport(counting),
+    )
+    assert again["status"] == "ok"
+    assert seen == ["integration"]  # 领域 agent 一次都没重跑
+    assert again["output"]["ai_usage"]["calls"] == 1
+    assert again["output"]["domains"][0]["summary"] == output["domains"][0]["summary"]
+    assert again["domain_template_version"] == 9
+    assert len(again["domain_template_hash"]) == 64
+    assert usage["degraded_domains"] == []
+
+    # 复用那次只多出一次整合出站
+    rows = [dict(row) for row in fast_vault.conn.query("SELECT * FROM egress_log")]
+    assert len(rows) == 3 and all(row["status"] == "sent" for row in rows)
 
 
 def test_domain_failure_only_degrades_that_domain(fast_vault: FastVault, monkeypatch) -> None:

@@ -47,7 +47,7 @@ from .child_filter import build_child_report
 from .degrade import build_degraded
 from .prompts import load_prompt
 from .render import render_output
-from .store import get_report, reports_in_period, save_report
+from .store import get_report, latest_ok_report, reports_in_period, save_report
 
 # 报告类型 → 出站用途（第 9.1 节、第 9.4 节）
 KIND_TO_PURPOSE = {
@@ -137,6 +137,29 @@ def _summary_md(kind: str, output: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _reusable_rows(rows: Any) -> list[dict[str, Any]]:
+    """取上一份报告里可复用的领域小结。
+
+    落库的 output 里每条 finding 额外带 ``rendered_claim``（占位符已渲染成文字）；
+    复用时要把它去掉，否则整合调用会把渲染结果当成原文再抄一遍，数字校验会整份作废。
+    """
+    if not isinstance(rows, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        findings = [
+            {key: value for key, value in item.items() if key != "rendered_claim"}
+            for item in row.get("findings") or []
+            if isinstance(item, dict)
+        ]
+        clean = dict(row)
+        clean["findings"] = findings
+        out.append(clean)
+    return out
+
+
 def _facts_end(facts: dict[str, Any]) -> date | None:
     period = facts.get("period") or {}
     raw = period.get("end")
@@ -177,19 +200,46 @@ def generate_report(
     # 3. 分领域 agent：只有周报会跑。
     #    月报/年报不再重读原始记录、也不重跑 13 个领域顾问：它们读下一层报告
     #    已经写好的「总结 + 评价」，一次调用完成整份上层报告（成本由此降一个量级）。
+    #
+    #    同一天重跑周报（数据没变、领域提示词也没换版本）时，直接复用上一份报告
+    #    已经跑好的领域小结，只重跑整合那一次调用——总结/评价/建议照常更新。
     run = AgentRun()
     if kind == "weekly":
-        run = run_domain_agents(
-            analytics,
-            facts,
-            whitelist=whitelist,
-            policy=policy,
-            anchor=anchor,
-            income_value=income,
-            config=cfg,
-            transport=transport,
-            template=domain_template,
+        previous = latest_ok_report(
+            conn,
+            kind=kind,
+            period_start=str(period.get("start") or ""),
+            period_end=str(period.get("end") or ""),
         )
+        if (
+            previous is not None
+            and previous.get("snapshot_hash") == snapshot_hash
+            and previous.get("domain_template_version") == domain_template.version
+            and previous.get("domain_template_hash") == domain_template.hash
+        ):
+            previous_output = previous.get("output") or {}
+            reused = _reusable_rows(previous_output.get("domains"))
+            if reused:
+                degraded = [
+                    str(row.get("domain") or "") for row in reused if row.get("degraded")
+                ]
+                run = AgentRun(
+                    rows=reused,
+                    skipped=[str(item) for item in previous_output.get("no_data_domains") or []],
+                    degraded=degraded,
+                )
+        if not run.rows:
+            run = run_domain_agents(
+                analytics,
+                facts,
+                whitelist=whitelist,
+                policy=policy,
+                anchor=anchor,
+                income_value=income,
+                config=cfg,
+                transport=transport,
+                template=domain_template,
+            )
         # 4. 整合调用：只读各领域小结 + 相关候选 + 异常 + 缺口
         result, reason = run_integration(
             analytics,
@@ -237,6 +287,10 @@ def generate_report(
         "metrics_version": metrics_fp["version"],
         "metrics_hash": metrics_fp["hash"],
     }
+    if kind == "weekly":
+        # 领域提示词的版本与指纹：下次重跑时据此判断领域小结还能不能复用
+        provenance["domain_template_version"] = domain_template.version
+        provenance["domain_template_hash"] = domain_template.hash
 
     # 5-6. 组装、校验后的落库
     if result is not None:
