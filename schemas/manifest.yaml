@@ -127,3 +127,17 @@ released:
   # evidence_refs 逐条核对真实路径、规则全收进 system 只留数据在 user；
   # 并用人口属性（性别/年龄/身高体重/行业/教育，走 basics）让建议贴合人生阶段与身体状况。
   prompts/weekly.v13.md: "7d13965c5b0bc305f9a77d6328a9216aeaf09cdca555598bbe70ab3e7511b57c"
+  # domain v9（内容分析）：评价落在记录内容上，禁止把记录条数/覆盖天数/样本量当结论；
+  # 允许引用逐条记录字段（entry_texts.items.<序号>.<字段标签>），同领域内可联合多项数据；
+  # 只有整期零记录才说「本期没有记录」并留空评价。结构与 v8 相同。
+  prompts/domain.v9.md: "bedb5fe21476ca84753a0905fd505a0f0d86a89e5172361471482227e2d67106"
+  # v14：周报只改分析方式——结论落在生活内容上，不以「记录少/样本不足」代替判断；
+  # 记录稀少时写那几条记录说明了什么；结构与 schema 与 v13 一致。
+  prompts/weekly.v14.md: "12efb2df9d364ab32eeb84d679889d012c33fe3b742fbf0f41b7561ec2b0688c"
+  # 领域镜头 v3：去掉「记录条数/覆盖天数」作为值得说的结论，改为读记录内容与结构变化。
+  # health v3 允许把睡眠与运动放在一起看（只描述同期出现，不写因果、不做医学结论）。
+  prompts/domains/daily.v3.yaml: "b4b6d2929d7c7ff42b1df4dc8c1b9c00ad60ed2649a030db103ef6b18754ac8a"
+  prompts/domains/goal.v3.yaml: "0760fbf847376e58a0ad96564a2bacdcc5ca7c34a4b1fd49b54d7dbbfa276d38"
+  prompts/domains/health.v3.yaml: "b5c5bdda7d51bbc176a9efd71e51357aba8df5e8bae627186cef071ebb25f65d"
+  prompts/domains/hobby.v3.yaml: "2fca585048b1002bc246cd8ca81405c57c0da41ad3aba27226bc584254b778f5"
+  prompts/domains/income.v3.yaml: "895c28166c9ef4ce4a09beea465311e34ad2643b83b9de51f784e9226a0ddf23"

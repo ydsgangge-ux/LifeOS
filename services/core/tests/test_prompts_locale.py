@@ -85,15 +85,15 @@ def test_rendered_prompts_carry_target_language():
 
 
 def test_latest_versions():
-    """v12 起周报/月报/年报都收敛成三块；领域小结 v8 只留总结 + 评价。
+    """v12 起周报/月报/年报都收敛成三块；领域小结 v9 只留总结 + 评价。
 
-    周报最新是 v13（重写：证据优先级、条数不设下限、数字规则二分、人口属性个性化）。
+    周报最新是 v14（v13 的结构不变，只改分析方式：结论落在生活内容上）。
     """
     prompts_dir = AppConfig().prompts_dir
-    assert load_prompt("weekly", prompts_dir).version == 13
+    assert load_prompt("weekly", prompts_dir).version == 14
     assert load_prompt("monthly", prompts_dir).version == 12
     assert load_prompt("yearly", prompts_dir).version == 6
-    assert load_prompt("domain", prompts_dir).version == 8
+    assert load_prompt("domain", prompts_dir).version == 9
 
 
 # ---------------------------------------------------------------------------
@@ -274,12 +274,12 @@ def test_v1_hashes_untouched():
 
 
 # ---------------------------------------------------------------------------
-# 分领域 agent：通用壳 + 领域镜头（domain.v8）
+# 分领域 agent：通用壳 + 领域镜头（domain.v9）
 # ---------------------------------------------------------------------------
 def test_domain_prompt_injects_domain_lens():
     """通用壳 + 领域镜头：每个领域只拿到自己的问题与关注点，没有镜头就只给壳。"""
     template = load_prompt("domain", AppConfig().prompts_dir)
-    assert template.version == 8
+    assert template.version == 9
 
     def _system(domain: str) -> str:
         lens = load_domain_lens(AppConfig().prompts_dir, domain)
