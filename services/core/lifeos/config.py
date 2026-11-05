@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import tomllib
@@ -172,8 +173,9 @@ def _toml_value(value: Any) -> str:
         return repr(value)
     if isinstance(value, (list, tuple)):
         return "[" + ", ".join(_toml_value(item) for item in value) + "]"
-    text = str(value).replace("\\", "\\\\").replace("'", "\\'")
-    return f"'{text}'"
+    # 用基本字符串（双引号，JSON 转义）：TOML 的单引号字面量不处理转义，
+    # 值里出现撇号会提前结束字符串、出现反斜杠会被原样保留，写回后下次启动解析失败。
+    return json.dumps(str(value), ensure_ascii=False)
 
 
 def _dump_table(prefix: str, values: dict[str, Any], lines: list[str]) -> None:

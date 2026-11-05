@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from lifeos.api import API_PREFIX, create_app
 from lifeos.api import llm as llm_api
-from lifeos.config import AppConfig, load_config
+from lifeos.config import AppConfig, load_config, save_llm_settings
 from lifeos.llm.adapter import DEFAULT_MAX_TOKENS
 from lifeos.llm.providers import PROVIDERS
 
@@ -121,6 +121,27 @@ def test_put_requires_model_and_endpoint(client, keys) -> None:
     assert _put(client, base_url="api.deepseek.com")["status"] == 400
     assert _put(client, timeout_seconds=2)["status"] == 422
     assert _put(client, max_retries=99)["status"] == 422
+
+
+def test_values_with_apostrophe_and_backslash_roundtrip(config: AppConfig) -> None:
+    """config.toml 的值用双引号基本字符串：撇号、反斜杠写回后仍可解析且原样读回。
+
+    单引号字面量不处理 TOML 转义，撇号会提前结束字符串、反斜杠会被保留成两个。
+    """
+    model = "openai/o'brien-model"
+    base_url = "https://example.com\\v1"
+    save_llm_settings(
+        config,
+        provider="custom",
+        model=model,
+        base_url=base_url,
+        timeout_seconds=30,
+        max_retries=2,
+        max_tokens=4096,
+    )
+    reloaded = load_config(config.data_dir)
+    assert reloaded.llm_model == model
+    assert reloaded.llm_base_url == base_url
 
 
 def test_clear_api_key(client, keys) -> None:
