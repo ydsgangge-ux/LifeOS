@@ -1209,7 +1209,11 @@ def test_missing_periods_dedupes_by_report(fast_vault: FastVault) -> None:
 # ---------------------------------------------------------------------------
 # 阅读器行为：采纳小实验（第 9.7 节）
 # ---------------------------------------------------------------------------
-def test_adopt_experiment_creates_once_plan(fast_vault: FastVault) -> None:
+def test_adopt_experiment_creates_once_plan(
+    fast_vault: FastVault, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 固定逻辑日：否则用例在「当地 00:00–04:00」之间跑时会被截止时刻折到前一天
+    monkeypatch.setattr("lifeos.reporting.pipeline.logical_today", lambda: date(2026, 11, 5))
     report = {
         "output": {
             "experiments": [
@@ -1221,7 +1225,7 @@ def test_adopt_experiment_creates_once_plan(fast_vault: FastVault) -> None:
     assert plan["cadence"] == "once"
     assert plan["status"] == "active"
     assert plan["expected_output"] == "波动减小"
-    assert plan["end_date"] == (date.today() + timedelta(days=7)).isoformat()
+    assert plan["end_date"] == "2026-11-12"
 
 
 def test_adopt_experiment_out_of_range(fast_vault: FastVault) -> None:
