@@ -130,6 +130,24 @@ def test_foreign_origin_rejected(client):
     assert response.json()["code"] == "forbidden_origin"
 
 
+def test_web_static_cache_headers(data_dir, tmp_path):
+    """入口页不缓存、带哈希的资源长缓存：升级后手机不会继续用旧的 index.html。"""
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<html></html>", encoding="utf-8")
+    (dist / "assets" / "app-abc123.js").write_text("console.log(1)", encoding="utf-8")
+
+    application = create_app(AppConfig(data_dir=data_dir), token=TOKEN, web_dist=dist)
+    with TestClient(application, base_url=BASE_URL) as client:
+        root = client.get("/")
+        assert root.status_code == 200
+        assert root.headers["cache-control"] == "no-cache"
+
+        asset = client.get("/assets/app-abc123.js")
+        assert asset.status_code == 200
+        assert asset.headers["cache-control"] == "public, max-age=31536000, immutable"
+
+
 def test_loopback_origin_accepted(client):
     response = client.get(
         f"{API_PREFIX}/health", headers={"Origin": "http://127.0.0.1:5173"}

@@ -17,6 +17,8 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
+from starlette.types import Scope
 
 from ..config import AppConfig, load_config
 from . import analytics as analytics_api
@@ -49,6 +51,26 @@ READY_PREFIX = "LIFEOS_READY "
 
 # 开发期前端（Vite）来源；打包后前端与后端同源，不需要 CORS（第 3.4 节）
 DEV_ORIGINS = ("http://127.0.0.1:5173", "http://localhost:5173")
+
+
+class WebStaticFiles(StaticFiles):
+    """托管前端产物：入口页每次回源校验，带哈希的资源长缓存。
+
+    升级后手机常因启发式缓存继续用旧的 index.html，从而加载旧的 JS，
+    表现成「电脑正常、手机还报错」。这里显式区分两类文件：
+    index.html 用 no-cache（每次协商，命中 304 很轻），
+    assets/ 下的文件名带内容哈希，可以永久缓存。
+    """
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path, scope)
+        # Windows 上 StaticFiles 传给这里的是反斜杠路径（assets\index-xxx.js）
+        normalized = path.replace("\\", "/")
+        if normalized in ("", ".", "index.html"):
+            response.headers["Cache-Control"] = "no-cache"
+        elif normalized.startswith("assets/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
 
 
 @asynccontextmanager
@@ -115,7 +137,7 @@ def create_app(
     dist = Path(web_dist) if web_dist is not None else default_web_dist(cfg)
     if dist.is_dir():
         # 同源托管前端构建产物；API 路由先注册，故不会被 "/" 挂载遮蔽
-        app.mount("/", StaticFiles(directory=dist, html=True), name="web")
+        app.mount("/", WebStaticFiles(directory=dist, html=True), name="web")
 
     return app
 
