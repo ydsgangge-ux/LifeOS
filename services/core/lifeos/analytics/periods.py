@@ -37,6 +37,13 @@ def resolve_period(
         raise InvalidInputError(f"未知周期类型：{kind}")
     end_date = parse_date(end)
     if kind == "weekly":
+        # 显式给 start 时按它算：错过几周再生成，窗口要覆盖上次报告之后的全部日期，
+        # 不能固定只回看 7 天（否则中间的日子永远不会被分析）。
+        if start is not None:
+            start_date = parse_date(start)
+            if start_date > end_date:
+                raise InvalidInputError("周期起点不能晚于终点")
+            return start_date, end_date
         return end_date - timedelta(days=6), end_date
     if kind == "monthly":
         first = end_date.replace(day=1)

@@ -880,6 +880,45 @@ def test_pipeline_generates_ok_report(fast_vault: FastVault, monkeypatch) -> Non
     assert len(rows) == 3 and all(row["status"] == "sent" for row in rows)
 
 
+def _period_of(report: dict) -> tuple[str, str]:
+    period = report["facts"]["period"]
+    return period["start"], period["end"]
+
+
+def test_weekly_fills_gap_since_last_report(fast_vault: FastVault, monkeypatch) -> None:
+    """隔了十几天再生成周报：窗口从上一份结束日的次日开始，中间的日子不被漏掉。"""
+    monkeypatch.setattr(llm_gateway, "api_key", lambda _provider: "sk-test")
+    write_policy(fast_vault.conn, "api_summary")
+    _seed_daily_week(fast_vault)
+    analytics = _analytics(fast_vault)
+
+    first = generate_report(
+        analytics,
+        kind="weekly",
+        end="2026-10-08",
+        transport=_routed_transport(domain=DOMAIN_OUTPUT, integration=INTEGRATION_OUTPUT),
+    )
+    assert _period_of(first) == ("2026-10-02", "2026-10-08")
+
+    # 10-18 才再点生成：默认 7 天只会覆盖 10-12~10-18，10-09~10-11 会漏
+    monkeypatch.setattr("lifeos.reporting.pipeline.logical_today", lambda: date(2026, 10, 18))
+    monkeypatch.setattr("lifeos.analytics.periods.logical_today", lambda: date(2026, 10, 18))
+    second = generate_report(
+        analytics,
+        kind="weekly",
+        transport=_routed_transport(domain=DOMAIN_OUTPUT, integration=INTEGRATION_OUTPUT),
+    )
+    assert _period_of(second) == ("2026-10-09", "2026-10-18")
+
+    # 已经覆盖到今天时回到默认 7 天，不会出现空窗口
+    third = generate_report(
+        analytics,
+        kind="weekly",
+        transport=_routed_transport(domain=DOMAIN_OUTPUT, integration=INTEGRATION_OUTPUT),
+    )
+    assert _period_of(third) == ("2026-10-12", "2026-10-18")
+
+
 def test_domain_failure_only_degrades_that_domain(fast_vault: FastVault, monkeypatch) -> None:
     """领域小结不合规时用本地文字兜底，整份报告仍然成立，整合照常调用。"""
     monkeypatch.setattr(llm_gateway, "api_key", lambda _provider: "sk-test")

@@ -47,7 +47,13 @@ from .child_filter import build_child_report
 from .degrade import build_degraded
 from .prompts import load_prompt
 from .render import render_output
-from .store import get_report, latest_ok_report, reports_in_period, save_report
+from .store import (
+    get_report,
+    last_period_end,
+    latest_ok_report,
+    reports_in_period,
+    save_report,
+)
 
 # 报告类型 → 出站用途（第 9.1 节、第 9.4 节）
 KIND_TO_PURPOSE = {
@@ -183,6 +189,19 @@ def generate_report(
         raise InvalidInputError(f"暂不支持的报告类型：{kind}")
     conn = analytics.conn
     cfg = analytics.config if config is None else config
+
+    # 补齐缺口：周报默认只看最近 7 天。如果上次周报是 10 天前生成的，
+    # 中间那 3 天就会永远进不了任何报告。这里把起点推到上一份周报结束日的次日，
+    # 用一份长周报覆盖全部遗漏日期；缺口不足 7 天时仍按默认 7 天算。
+    if kind == "weekly" and end is None and start is None:
+        last_end = last_period_end(conn, kind="weekly")
+        if last_end:
+            try:
+                resume = date.fromisoformat(last_end) + timedelta(days=1)
+            except ValueError:
+                resume = None
+            if resume is not None and resume < logical_today() - timedelta(days=6):
+                start = resume.isoformat()
 
     # 1. 事实包（本地、确定性）
     facts = analytics.facts(kind=kind, end=end, start=start)

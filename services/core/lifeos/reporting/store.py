@@ -159,6 +159,18 @@ def latest_ok_report(
     return report
 
 
+def last_period_end(conn: VaultConnection, *, kind: str) -> str | None:
+    """该类型报告已经覆盖到哪一天；用于补齐漏掉的周期。"""
+    row = conn.query_one(
+        "SELECT MAX(period_end) AS last_end FROM report WHERE kind = ? AND period_end IS NOT NULL",
+        (kind,),
+    )
+    if row is None:
+        return None
+    value = row["last_end"]
+    return str(value)[:10] if value else None
+
+
 def report_exists(conn: VaultConnection, kind: str, period_end: str) -> bool:
     """该周期是否已生成过报告——补跑用，保证同一个周期只生成一次。"""
     row = conn.query_one(
